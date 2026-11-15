@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" class="x-arrive">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Najm Developments — Sign in</title>
+<meta name="theme-color" content="#18263E">
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/najm.css?v=24">
+</head>
+<body class="is-login">
+
+<main class="gate">
+
+  <!-- the picture: Najm's own cover, opened through Najm's own star -->
+  <div class="gate-art">
+    <img class="ga-cover" src="img/najm-cover.jpg" alt="" aria-hidden="true">
+    <div class="gate-lockup" data-in="1">
+      <span class="gl-logo" id="logo"></span>
+      <span class="gl-sub" data-t="Sales">Sales</span>
+    </div>
+  </div>
+
+  <div class="gate-body">
+    <div class="sky" aria-hidden="true"></div>
+
+    <!-- the company's name, as the logo writes it (Muhanad, 2026-10-29: the name, not the CP line) -->
+    <h1 class="gate-head" data-in="2">
+      <span class="gh-script">Najm<span class="gh-star" id="ghstar"></span></span>
+      <span class="gh-caps">Developments</span>
+    </h1>
+
+    <!-- method and onsubmit on the tag: a slow line can never send the form to its own address (Main Marks build 130) -->
+    <form class="gate-form" id="signin" method="post" onsubmit="return false" autocomplete="on" novalidate>
+      <label class="field" data-in="3">
+        <span data-t="Work email">Work email</span>
+        <input id="who" name="username" type="email" inputmode="email" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+      </label>
+      <label class="field" data-in="4">
+        <span data-t="Password">Password</span>
+        <input id="code" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <p class="gate-err" id="why" hidden></p>
+      <button class="signin-btn" id="go" data-in="5" type="submit">
+        <span class="lbl" data-t="Sign in">Sign in</span>
+        <svg class="arr" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+        <span class="btn-state" aria-hidden="true">
+          <span class="spin"></span>
+          <svg class="tick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        </span>
+      </button>
+      <button class="forgot" id="forgot" type="button" data-in="6" data-t="Forgot password?">Forgot password?</button>
+      <p class="forgot-note" id="forgotnote" hidden></p>
+      <div class="demo-note" id="demonote" hidden>
+        <p data-t-html="&lt;strong&gt;Demo accounts.&lt;/strong&gt; The two demo ones, and Najm’s sales team with a demo password until the real sign-in. Tap one to fill the form."><strong>Demo accounts.</strong> The two demo ones, and Najm’s sales team with a demo password until the real sign-in. Tap one to fill the form.</p>
+      </div>
+    </form>
+
+    <footer class="gate-foot" data-in="7">
+      <p class="gf-tag">Building trust. Creating value.</p>
+      <p class="gf-priv"><span data-t="Privileged access to Najm Developments projects">Privileged access to Najm Developments projects</span> <span id="buildstamp"></span></p>
+    </footer>
+  </div>
+</main>
+
+<script src="js/config.js?v=24"></script>
+<script src="js/ar.js?v=24"></script>
+<script src="js/i18n.js?v=24"></script>
+<script src="js/core.js?v=24"></script>
+<script src="js/store.js?v=24"></script>
+<script data-later="js/login.js?v=24"></script>
+</body>
+</html>
