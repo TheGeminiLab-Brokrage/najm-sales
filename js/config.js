@@ -8,7 +8,7 @@
 var CONFIG = {
   build: 19,
   /* the ?v= on every page's files: ONE number for all, so the CSS is one download, not one per page */
-  stamp: 24,
+  stamp: 25,
 
   /* the daily target under a sales agent's sales (Main Marks CONFIG.salesDay): at least 3 offers a day as a
      general broadcast to all the companies. Muhanad's rule from Main Marks, ASSUMED for Najm until Najm says. */

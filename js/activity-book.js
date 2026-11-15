@@ -101,7 +101,9 @@
     var B = root.NJ_BROKERS, V = root.VELN_UNITS;
     if (!B || !V || !CONFIG) throw new Error('Nothing to build the book from.');
     var team = salesTeam(), companies = B.names.slice(), today = today0();
-    var clock = new Date(), now = Math.max(clock.getHours() * 60 + clock.getMinutes(), 13 * 60 + 30);
+    /* the demo reads as an afternoon at the earliest; the real store uses the real clock (a step stamped
+       later than now is refused by the database, rightly: found live 2026-11-15 at 12:26) */
+    var clock = new Date(), now = real() ? clock.getHours() * 60 + clock.getMinutes() : Math.max(clock.getHours() * 60 + clock.getMinutes(), 13 * 60 + 30);
     function dateOf(ago) { var d = new Date(today); d.setDate(d.getDate() - ago); return d; }
     function agoOf(date) { return Math.round((today - new Date(date.getFullYear(), date.getMonth(), date.getDate())) / 864e5); }
 

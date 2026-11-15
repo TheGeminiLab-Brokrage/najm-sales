@@ -198,6 +198,8 @@
   function personId(email) { var p = people.filter(function (x) { return x.email === email; })[0]; return p ? p.id : null; }
   function emailOf(id) { var p = people.filter(function (x) { return x.id === id; })[0]; return p ? p.email : null; }
   function isoOf(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  /* never later than now: the database refuses a step in the future */
+  function notLater(iso) { var t = Date.parse(iso); return isFinite(t) && t > Date.now() ? new Date().toISOString() : iso; }
   function atOf(date, t) { var p = String(date).split('-'); var d = new Date(+p[0], +p[1] - 1, +p[2]); d.setMinutes(t || 0); return d.toISOString(); }
 
   /* one send = one raw row; the counting rules (Main Marks') are applied when read, as the book does */
@@ -299,7 +301,7 @@
   N.store.saveRecord = function (r) {
     queue({ kind: 'record', row: r, body: { p_k: r.k, p_company: companyId[r.c] || null, p_company_name: r.c || '', p_channel: '', p_line: r.p || '',
       p_units: r.u || '', p_area: r.area || null, p_value: r.v || null, p_plan: r.pl || '', p_partner: r.m2 ? personId(r.m2) : null,
-      p_detail: r, p_at: atOf(r.date, r.t) } });
+      p_detail: r, p_at: notLater(atOf(r.date, r.t)) } });
   };
   N.store.takeBack = function (id) { queue({ kind: 'back', id: id }); };
   N.store.waiting = function () { return outbox().length; };
