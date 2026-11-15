@@ -68,7 +68,14 @@
         cashTotal: cp + (cm ? cm.amount : 0)
       };
     }
-    if (!plan || !(plan.down >= 0) || !(plan.years > 0)) return null;
+    /* A FIXED INSTALMENT (Najm's zone shares, 2026-11-15): each instalment is a stated
+       share of the price (3% = 30,000 on a 1,000,000 share), paid until the rest is
+       cleared; the last one carries what is left (15% down at 4.5% a quarter: 18 x 45,000
+       and a last 40,000). The count is DERIVED from the amounts, then checked against
+       the term the config states, so a plan that does not end where Najm said is never
+       shown. Worked in whole pounds, so 750,000 / 30,000 is exactly 25, never 25.0000001. */
+    var fixed = plan && plan.each > 0;
+    if (!plan || !(plan.down >= 0) || !(fixed ? plan.months > 0 : plan.years > 0)) return null;
     var every = plan.every || terms.instalmentEvery || 3;  /* months */
 
     var discountPct = o.discount || 0;
@@ -95,15 +102,22 @@
     });
     var milestoneTotal = milestones.reduce(function (s, m) { return s + m.amount; }, 0);
 
-    var count = Math.round((plan.years * 12) / every);
-    /* Guard the count itself: a schedule quietly one instalment short is
-       worth real money and looks completely normal on the page. */
-    if (count !== (plan.years * 12) / every) return null;
-
     var balance = payable - down - milestoneTotal;
     if (balance < 0) return null;
 
-    var each = egp(balance / count);
+    var termMonths = fixed ? plan.months : plan.years * 12;
+    var count, each;
+    if (fixed) {
+      each = egp(list * plan.each);
+      if (!(each > 0)) return null;
+      count = Math.ceil(balance / each);
+    } else {
+      count = Math.round(termMonths / every);
+      /* Guard the count itself: a schedule quietly one instalment short is
+         worth real money and looks completely normal on the page. */
+      if (count !== termMonths / every) return null;
+      each = egp(balance / count);
+    }
 
     var rows = [{ no: 0, kind: 'down', label: 'Down payment', months: 0, due: new Date(start.getTime()), amount: down }];
     var running = 0, i, amt;
@@ -122,7 +136,8 @@
       rows.push({ no: null, kind: 'milestone', label: m.label, months: m.months, due: addMonths(start, m.months), amount: m.amount });
     });
 
-    var maintenance = maintOf(terms, list, payable, start);
+    /* a plan that says maintenance: false has none (the zone shares, his answer 2026-11-15) */
+    var maintenance = plan.maintenance === false ? null : maintOf(terms, list, payable, start);
 
     /* An extra with no month is carried but NOT counted, and it says so.
        Inventing when a club fee is owed is inventing a number. */
@@ -146,7 +161,9 @@
       each: each,
       lastInstalment: each ? (balance - each * (count - 1)) : 0,
       everyMonths: every,
-      years: plan.years,
+      years: termMonths / 12,
+      months: termMonths,
+      fixed: fixed,
       rows: rows,
       maintenance: maintenance,
       extras: extras,
@@ -169,8 +186,12 @@
     if (onBalance && discount !== egp((list - down) * discountPct)) problems.push('the discount is not on the amount left after the down payment');
     var instalments = rows.filter(function (r) { return r.kind === 'instalment'; });
     if (instalments.length !== count) problems.push('expected ' + count + ' instalments, built ' + instalments.length);
-    if (instalments.length && instalments[instalments.length - 1].months !== plan.years * 12) {
+    if (instalments.length && instalments[instalments.length - 1].months !== termMonths) {
       problems.push('the last instalment does not land on the end of the term');
+    }
+    /* a fixed instalment: the last is never larger than the others, and never nothing */
+    if (fixed && instalments.length && !(out.lastInstalment > 0 && out.lastInstalment <= each)) {
+      problems.push('the last instalment is ' + out.lastInstalment + ', the others ' + each);
     }
     if (problems.length) { out.broken = problems; return out; }
 

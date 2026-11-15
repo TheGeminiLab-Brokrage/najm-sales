@@ -882,7 +882,8 @@
         var n = Number(pick.value), some = open.slice(0, n), first = some[0];
         var total = some.reduce(function (v, x) { return v + x.price; }, 0);
         odo(priceV, money(total));
-        codes.textContent = n > 1 ? N.t('{a} to {b}', { a: first.code, b: some[n - 1].code }) : first.code;
+        /* every chosen share named, runs joined (the offer prints the same: js/offer.js shareCodes) */
+        codes.textContent = N.offer && N.offer.shareCodes ? N.offer.shareCodes(some) : (n > 1 ? N.t('{a} to {b}', { a: first.code, b: some[n - 1].code }) : first.code);
         factsAt.textContent = '';
         factsAt.appendChild(facts([
           ['Size', m2(some.reduce(function (v, x) { return v + x.area; }, 0))],
@@ -890,7 +891,7 @@
           ['Shares left', N.t('{n} of {all}', { n: open.length, all: z.shares.length })],
           ['Delivered', delivered(l)]
         ]));
-        var items = some.map(function (x) { return { price: x.price, kind: 'zone' }; });
+        var items = some.map(function (x) { return { price: x.price, kind: 'zone', share: x, z: z, f: cur.f }; });
         if (block) block.setItems(items);
         else {
           if (l.operator) factsAt.parentNode.insertBefore(el('p', 'l-op', N.t(l.operator)), factsAt.nextSibling);
@@ -1028,6 +1029,8 @@
             list.push({ key: 'down', label: N.t('Down payment · {p} of the price', { p: pct(pl.down) }), value: money(sc.down) });
             list.push({ key: 'each', label: N.t('Quarterly'), value: money(sc.each) });
             list.push({ key: 'count', label: N.t('Instalments'), value: String(sc.count) });
+            /* a fixed instalment (zone shares): the last one carries what is left, so it is shown */
+            if (sc.fixed && sc.lastInstalment !== sc.each) list.push({ key: 'last', label: N.t('Last instalment'), value: money(sc.lastInstalment) });
             if (sc.discount) list.push({ key: 'save', label: N.t('You save · {p} off the rest', { p: pct(sc.discountPct) }), value: money(sc.discount) });
             list.push({ key: 'total', label: N.t('Total payable'), value: money(sc.payable) });
             var b2 = budgetLine(sc, pl);
@@ -1057,15 +1060,17 @@
       paint();
       w.setItems = function (next) { items = next; paint(); };
       /* SEND THE OFFER (build 8): as an offer PDF or a WhatsApp post, as Main Marks does
-         (js/send.js). Only units: a zone share's plans are on hold. */
-      if (N.send && items.every(function (x) { return x.u; })) {
+         (js/send.js). Units, or a zone's shares (2026-11-15: their two plans came). */
+      if (N.send && (items.every(function (x) { return x.u; }) || items.every(function (x) { return x.share; }))) {
         var acts = el('div', 'q-actions');
         var send = el('button', 'q-send', N.t('Send offer'));
         send.type = 'button';
         send.insertAdjacentHTML('afterbegin', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7z"/></svg>');
         send.addEventListener('click', function () {
           var pl = plans.filter(function (x) { return x.id === ps.value; })[0];
-          N.send.start({ project: p, line: l, plan: pl, items: items.map(function (x) { return { u: x.u, f: x.f }; }) });
+          N.send.start({ project: p, line: l, plan: pl, items: items[0].share
+            ? [{ z: items[0].z, f: items[0].f, shares: items.map(function (x) { return x.share; }) }]
+            : items.map(function (x) { return { u: x.u, f: x.f }; }) });
         });
         acts.appendChild(send);
         w.appendChild(acts);

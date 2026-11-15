@@ -21,6 +21,7 @@
    no store behind the demo: build 13 counts each send on this phone for My activity.
 
      NJ.send.start({ project, line, items: [{ u, f }], plan })
+     NJ.send.start({ project, line, items: [{ z, shares, f }], plan })   a zone deal (2026-11-15)
    ------------------------------------------------------------------ */
 (function (root) {
   'use strict';
@@ -210,10 +211,10 @@
     /* build 10: the offer comes out in the app's language (Main Marks js/offerpdf.js, MM.lang) */
     var lang = N.lang === 'ar' ? 'ar' : 'en';
     var last = recall(LAST_KEY) || {};
-    var codes = o.items.map(function (x) { return window.VELN_UNITS.floors[x.f].code + '-' + x.u.no; });
-
-    /* fail closed before anything opens: the offer must work out */
-    try { N.offer.work(o); } catch (e) { N.toast(N.t('This offer cannot be sent: {why}', { why: e.message })); return; }
+    /* fail closed before anything opens: the offer must work out. The codes are the offer's own
+       (a unit's "G-22", a zone deal's shares "Z1-01 – Z1-03") */
+    var codes;
+    try { codes = N.offer.work(o).items.map(function (x) { return x.code; }); } catch (e) { N.toast(N.t('This offer cannot be sent: {why}', { why: e.message })); return; }
 
     var made = {}, ready = {};
     function prepare(lg) {
@@ -415,7 +416,7 @@
     var me = N.me() || {};
     var agent = recall(AGENT_KEY) || { on: false, name: me.name || '', phone: '' };
     if (!agent.name) agent.name = me.name || '';
-    var codes = o.items.map(function (x) { return window.VELN_UNITS.floors[x.f].code + '-' + x.u.no; });
+    var codes = N.offer.work(o).items.map(function (x) { return x.code; });
     var file = null, url = null, noPicture = false;
     var S = sheet('sdPostH'), card = S.card;
     card.classList.add('sd-post');

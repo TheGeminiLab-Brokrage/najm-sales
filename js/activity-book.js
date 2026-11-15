@@ -340,7 +340,7 @@
     var kind = u ? u.kind : null;
     var own = kind ? P.plans.filter(function (pl) { return pl.only === kind; }) : [];
     (own.length ? own : P.plans.filter(function (pl) { return !pl.only || !u; })).forEach(function (pl) {
-      out.push({ id: pl.id, group: pl.group, label: pl.label, down: pl.cash ? 100 : Math.round(pl.down * 10000) / 100, years: pl.cash ? 0 : pl.years });
+      out.push({ id: pl.id, group: pl.group, label: pl.label, down: pl.cash ? 100 : Math.round(pl.down * 10000) / 100, years: pl.cash ? 0 : (pl.years || pl.months / 12) });
     });
     out.push({ id: 'other', group: 'other', label: 'Another plan' });
     return out;

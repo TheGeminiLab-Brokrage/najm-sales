@@ -144,6 +144,8 @@ window.NJ_AR = {
   /* ---- the payment plan ---- */
   'Payment plan': 'نظام السداد',
   'Payment plans': 'أنظمة السداد',
+  'Zone share plans': 'أنظمة سداد الحصص',
+  'Last instalment': 'القسط الأخير',
   'Cash': 'كاش',
   'Special offer': 'عرض خاص',
   'Plans': 'الأنظمة',

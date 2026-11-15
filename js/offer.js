@@ -58,8 +58,15 @@
     day: function (d) { return d.getDate() + ' ' + MON_EN[d.getMonth()] + ' ' + d.getFullYear(); },
     longDay: function (d) { return d.getDate() + ' ' + MONTH_EN[d.getMonth()] + ' ' + d.getFullYear(); },
     m2: function (a) { return (Math.round(a * 100) / 100).toLocaleString('en-US') + ' m²'; },
-    word: { shop: 'Shop', pharmacy: 'Pharmacy', office: 'Office', clinic: 'Clinic' },
-    words: { shop: 'Shops', pharmacy: 'Shops', office: 'Offices', clinic: 'Clinics' },
+    word: { shop: 'Shop', pharmacy: 'Pharmacy', office: 'Office', clinic: 'Clinic', zone: 'Zone share' },
+    words: { shop: 'Shops', pharmacy: 'Shops', office: 'Offices', clinic: 'Clinics', zone: 'Zone shares' },
+    /* the zone shares (2026-11-15) */
+    shares: function (n) { return n + (n === 1 ? ' share' : ' shares'); },
+    zoneName: function (z) { return z.name + (z.who ? '  ·  ' + z.who : ''); },
+    term: function (m) { var y = Math.floor(m / 12), r = m % 12; return (y ? y + (y === 1 ? ' year' : ' years') : '') + (y && r ? ' ' : '') + (r ? r + (r === 1 ? ' month' : ' months') : ''); },
+    fShares: 'Shares', fShareCodes: 'Share codes', fZone: 'Zone', fSize: 'Size',
+    eachLast: function (v, w) { return 'EGP ' + money(v) + ' each, the last ' + money(w); },
+    nLast: function (n, w) { return n + ' payments  ·  the last ' + money(w); },
     floor: { ground: 'Ground floor', first: 'First floor', second: 'Second floor', third: 'Third floor' },
     line: function (l) { return l.name; },
     place: 'New Cairo · Yasmine district',
@@ -121,8 +128,14 @@
     day: function (d) { return d.getDate() + ' ' + MONTH_AR[d.getMonth()] + ' ' + d.getFullYear(); },
     longDay: function (d) { return d.getDate() + ' ' + MONTH_AR[d.getMonth()] + ' ' + d.getFullYear(); },
     m2: function (a) { return (Math.round(a * 100) / 100).toLocaleString('en-US') + ' متر'; },
-    word: { shop: 'محل', pharmacy: 'صيدلية', office: 'مكتب إداري', clinic: 'عيادة' },
-    words: { shop: 'محلات', pharmacy: 'محلات', office: 'مكاتب إدارية', clinic: 'عيادات' },
+    word: { shop: 'محل', pharmacy: 'صيدلية', office: 'مكتب إداري', clinic: 'عيادة', zone: 'حصة' },
+    words: { shop: 'محلات', pharmacy: 'محلات', office: 'مكاتب إدارية', clinic: 'عيادات', zone: 'حصص' },
+    shares: function (n) { return n === 1 ? 'حصة واحدة' : n === 2 ? 'حصتين' : n + (n <= 10 ? ' حصص' : ' حصة'); },
+    zoneName: function (z) { return String(z.name).replace(/^Zone/, 'زون') + (z.who ? '  ·  ' + z.who : ''); },
+    term: function (m) { var y = Math.floor(m / 12), r = m % 12; return (y ? y + (y <= 10 ? ' سنين' : ' سنة') : '') + (y && r ? ' و' : '') + (r ? r + (r <= 10 ? ' شهور' : ' شهر') : ''); },
+    fShares: 'عدد الحصص', fShareCodes: 'أكواد الحصص', fZone: 'الزون', fSize: 'المساحة',
+    eachLast: function (v, w) { return money(v) + ' جنيه للقسط، والأخير ' + money(w); },
+    nLast: function (n, w) { return n + ' قسطاً  ·  الأخير ' + money(w); },
     floor: { ground: 'الدور الأرضي', first: 'الدور الأول', second: 'الدور الثاني', third: 'الدور الثالث' },
     line: function (l) { return ({ commercial: 'التجاري', admin: 'الإداري', medical: 'الطبي' })[l.id] || l.name; },
     place: 'القاهرة الجديدة · حي الياسمين',
@@ -161,6 +174,7 @@
     planLabel: function (pl) {
       var yrs = function (n) { return n + (n <= 10 ? ' سنين' : ' سنة'); };
       if (pl.cash) return 'كاش · خصم ' + pctOf(pl.discount) + '%';
+      if (pl.months) return 'مقدم ' + pctOf(pl.down) + '% · ' + AR.term(pl.months) + (pl.discount ? ' · خصم ' + pctOf(pl.discount) + '%' : '');
       var lead = pl.only === 'pharmacy' ? 'عرض الصيدلية · ' : pl.only === 'hypermarket' ? 'عرض الهايبر ماركت · ' : pl.id === 'semi' ? 'نص كاش · ' : '';
       return lead + 'مقدم ' + pctOf(pl.down) + '% · ' + yrs(pl.years) + (pl.discount ? ' · خصم ' + pctOf(pl.discount) + '%' : '');
     },
@@ -188,10 +202,59 @@
   }
   function wordOf(l, u) { return l.id === 'commercial' ? (u.kind === 'pharmacy' ? 'pharmacy' : 'shop') : l.id === 'admin' ? 'office' : 'clinic'; }
 
+  /* zone share codes, as few words as they can be: VL-TH-Z1-01, -02, -03 and -05 read
+     "VL-TH-Z1-01 – VL-TH-Z1-03 + VL-TH-Z1-05" (short: "Z1-01–Z1-03+Z1-05", no spaces: inside an
+     Arabic line a spaced range is split by the right-to-left order). Every share is named, so
+     operations reserve exactly these. js/project.js shows the long form. */
+  function shareCodes(shares, short) {
+    var out = [], run = null;
+    function nm(c) { return short ? String(c).replace(/^.*-(Z\d+-\d+)$/, '$1') : String(c); }
+    function close() { if (run) out.push(run.a === run.b ? nm(run.a) : nm(run.a) + (short ? '–' : ' – ') + nm(run.b)); }
+    shares.forEach(function (s) {
+      var m = /^(.*-)(\d+)$/.exec(s.code), head = m ? m[1] : s.code, n = m ? +m[2] : NaN;
+      if (run && run.head === head && n === run.n + 1) { run.b = s.code; run.n = n; return; }
+      close(); run = { head: head, n: n, a: s.code, b: s.code };
+    });
+    close();
+    return out.join(short ? '+' : ' + ');
+  }
+
+  /* A ZONE DEAL (2026-11-15): { z, shares, f }, the shares the agent chose by number. Made into
+     one "unit" the pages already know how to print: the shares' areas and prices added, the
+     zone's own outline on the plan. Every share is checked again against the inventory. */
+  function zoneItem(x, p, pl, book, when) {
+    var fl = book.floors[x.f], z = fl && (fl.zones || []).filter(function (q) { return x.z && q.no === x.z.no; })[0];
+    if (!z) throw new Error('that zone is not on the plan');
+    var list = x.shares || [], seen = {};
+    if (!list.length) throw new Error('no share chosen');
+    list.forEach(function (s) {
+      var real = z.shares.filter(function (q) { return q.code === (s && s.code); })[0];
+      if (!real || real.status !== 'Available' || seen[real.code]) throw new Error('share ' + (s && s.code) + ' is not available, so it cannot be offered');
+      seen[real.code] = true;
+    });
+    if (!plansFor(p, 'zone').some(function (y) { return y.id === pl.id; })) throw new Error('the plan ' + pl.label + ' is not offered on zone shares');
+    var shares = list.map(function (s) { return z.shares.filter(function (q) { return q.code === s.code; })[0]; });
+    var add = function (k) { return shares.reduce(function (n, q) { return n + (q[k] || 0); }, 0); };
+    var rates = shares.map(function (q) { return q.perM; }), lo = Math.min.apply(null, rates), hi = Math.max.apply(null, rates);
+    var U = { no: z.no, code: shareCodes(shares), kind: 'zone', status: 'Available', indoor: add('area'), outdoor: 0, area: add('area'),
+      price: add('price'), maintenance: 0, perM: lo === hi ? lo : null, perMRange: [lo, hi], poly: z.poly, at: z.at, zone: z, shares: shares };
+    var s = N.plans.schedule({ listPrice: U.price, discount: pl.discount || 0, plan: pl, terms: p.planTerms, from: when });
+    if (!s) throw new Error('no schedule could be worked out for ' + z.name);
+    if (s.broken) throw new Error('the schedule does not add up: ' + s.broken.join('; '));
+    return { u: U, f: x.f, fl: fl, code: shareCodes(shares, true), word: 'zone', s: s, zone: true };
+  }
+
   function work(o) {
     var p = o.project, l = o.line, pl = o.plan, book = root.VELN_UNITS, when = o.date || new Date();
     if (!book || !o.items || !o.items.length) throw new Error('nothing to offer');
     if (!pl) throw new Error('no payment plan chosen');
+    if (o.items.some(function (x) { return x.z; })) {
+      /* a zone goes alone: one zone, its shares, never mixed with units */
+      if (o.items.length !== 1) throw new Error('a zone share is offered on its own');
+      var zi = zoneItem(o.items[0], p, pl, book, when), ZS = zi.s;
+      if (ZS.rows.reduce(function (n, r) { return n + r.amount; }, 0) !== ZS.payable) throw new Error('the schedule does not add up');
+      return { p: p, l: l, pl: pl, when: when, items: [zi], one: zi, S: ZS, floors: [zi.f], many: false, joined: false, word: 'zone', zone: true };
+    }
     var items = o.items.map(function (x) {
       var u = x.u, fl = book.floors[x.f];
       /* fail closed: the screen prevents all of these, but this is what a buyer acts on */
@@ -462,7 +525,7 @@
          pages print them (the app's plan does the same, js/project.js) */
       if (fl.labels) printLabels(ctx, fl.units || [], k);
       mine.forEach(function (x) {
-        var at = fl.labels ? pinSpot(x.u, k, pinH) : centre(x.u);
+        var at = x.u.zone ? x.u.at : fl.labels ? pinSpot(x.u, k, pinH) : centre(x.u);
         pin(ctx, at[0] * k, at[1] * k, pinH, 0);          /* several units are one unit: no numbers (2026-11-14) */
       });
       return c;
@@ -542,7 +605,7 @@
     office: { cover: ['b-bluehour', 0.08, 0.5], pics: [['o-escalator', 0.5, 0.6], ['b-day-two', 0.5, 0.3], ['b-aerial-day', 0.5, 0.5]] },
     clinic: { cover: ['c-dental', 0.42, 0.5], pics: [['c-lobby', 0.5, 0.6], ['c-corridor', 0.5, 0.6], ['c-room', 0.5, 0.45]] }
   };
-  function lineKey(word) { return word === 'office' ? 'office' : word === 'clinic' ? 'clinic' : 'shop'; }
+  function lineKey(word) { return word === 'office' ? 'office' : word === 'clinic' || word === 'zone' ? 'clinic' : 'shop'; }
   function al(w) { return w.split(' ').map(function (x) { return 'ال' + x; }).join(' '); }
 
   /* the words of look D. The line facts are the Sales Orientation deck's (pp. 42-45), the
@@ -683,7 +746,7 @@
     return Promise.all([script('vendor/jspdf.umd.min.js'), fontList, art(w)]).then(function (g) {
       var doc = draw(w, { lang: lang, fonts: g[1], art: g[2], jsPDF: root.jspdf.jsPDF, arabic: N.arabic });
       return { blob: doc.output('blob'), pages: doc.getNumberOfPages(),
-        name: 'VELN - ' + EN.word[w.word] + ' ' + w.one.code + ' - offer' + (lang === 'ar' ? ' - Arabic' : '') + '.pdf' };
+        name: 'VELN - ' + EN.word[w.word] + ' ' + w.one.code.replace(/–/g, ' to ') + ' - offer' + (lang === 'ar' ? ' - Arabic' : '') + '.pdf' };
     });
   }
 
@@ -797,6 +860,7 @@
     fill(GOLD); rect(M, 729, 30, 0.8, 'F');
     font('normal', 10.5); ink(FG);
     var where = T.line(l) + '  ·  ' + flNames.join(' + ') + (w.many ? '' : '  ·  ' + T.m2(first.u.indoor) + (first.u.outdoor ? (RTL ? ' داخلي + ' + T.m2(first.u.outdoor) + ' خارجي' : ' indoor  +  ' + T.m2(first.u.outdoor) + ' outdoor') : ''));
+    if (w.zone) where = T.line(l) + '  ·  ' + flNames.join(' + ') + '  ·  ' + T.m2(first.u.area) + '  ·  ' + T.shares(first.u.shares.length);
     put(where, M, 751);
     if (w.many) { font('normal', 8.6); ink(MUTED); put(codes, M, 767); }
     font('normal', 8.6); ink(MUTED); put(T.longDay(w.when), M, w.many ? 783 : 768);
@@ -893,14 +957,23 @@
     y5 += 26;
     if (!w.many) {
       var u = first.u, colW = (PW - 7.5) / 2;
-      var fs = [[T.fSheet, u.code], [T.fLine, T.line(l)], [T.fFloor, floorTxt], [T.fIndoor, T.m2(u.indoor)],
+      var perMTxt = u.perM ? T.egp(u.perM) : (RTL ? money(u.perMRange[0]) + ' – ' + T.egp(u.perMRange[1]) : T.egp(u.perMRange[0]) + ' – ' + money(u.perMRange[1]));
+      /* a zone deal: its shares and their codes, the zone, the size; no outdoor, and no maintenance line (none, his answer 2026-11-15) */
+      var fs = w.zone ? [[T.fShares, String(u.shares.length)], [T.fZone, T.zoneName(u.zone)], [T.fShareCodes, u.code], [T.fFloor, floorTxt],
+        [T.fSize, T.m2(u.area)], [T.fPerM, perMTxt], [T.fList, T.egp(u.price)], [T.fDelivered, T.delivered(delivered)]] : [[T.fSheet, u.code], [T.fLine, T.line(l)], [T.fFloor, floorTxt], [T.fIndoor, T.m2(u.indoor)],
         [T.fOutdoor, u.outdoor ? T.m2(u.outdoor) : '—'], [T.fPriced, T.m2(u.area)], [T.fPerM, u.perM ? T.egp(u.perM) : (RTL ? money(u.perMRange[0]) + ' – ' + T.egp(u.perMRange[1]) : T.egp(u.perMRange[0]) + ' – ' + money(u.perMRange[1]))], [T.fList, T.egp(u.price)],
         [T.fDelivered, T.delivered(delivered)], [T.fMaint, T.egp(u.maintenance)]];
       fs.forEach(function (kv, i) {
         var x = M + (i % 2) * (colW + 7.5), y = y5 + Math.floor(i / 2) * 25.5;
         fill(Math.floor(i / 2) % 2 ? ROW_B : ROW_A); rect(x, y, colW, 25.5, 'F');
         caps(kv[0], x + 9, y + 15.8, 5.6, MUTED, { weight: 'normal' });
-        font('medium', 9); ink(FG); put(kv[1], x + colW - 9, y + 16, { align: 'right' });
+        /* a long value (many share codes) steps down in size to stay in its box; still too long:
+           the short codes (Z1-01 – Z1-03), which name the same shares */
+        var room = colW - 18 - (width(isAr(kv[0]) ? kv[0] : String(kv[0]).toUpperCase()) * 1.3 + 14), v = kv[1], vs = 9;
+        font('medium', vs);
+        while (vs > 5.5 && width(v) > room) { vs -= 0.5; font('medium', vs); }
+        if (width(v) > room && w.zone && v === u.code) { v = first.code; vs = 9; font('medium', vs); while (vs > 5.5 && width(v) > room) { vs -= 0.5; font('medium', vs); } }
+        ink(FG); put(v, x + colW - 9, y + 16, { align: 'right' });
       });
     } else {
       var cx = [M, M + 26, M + 92, M + 210, M + 300, W - M];
@@ -921,7 +994,7 @@
     head(T.thePlan, T.planLabel(pl));
     var mt = S.maintenance, B = T.big, inst = S.rows.filter(function (r) { return r.kind === 'instalment'; });
     var tiles = S.cash ? [[B.cash, money(S.payable), B.once], [B.off, money(S.discount), pctOf(S.discountPct) + '%'], [B.listP, money(S.list), '']]
-      : [[B.down, money(S.down), B.onSign], [B.every, money(S.each), B.n(S.count)], [B.total, money(S.payable), S.discount ? B.save(S.discount) : '']];
+      : [[B.down, money(S.down), B.onSign], [B.every, money(S.each), S.fixed && S.lastInstalment !== S.each ? T.nLast(S.count, S.lastInstalment) : B.n(S.count)], [B.total, money(S.payable), S.discount ? B.save(S.discount) : '']];
     var tw = (PW - 15) / 3;
     tiles.forEach(function (t, i) {
       var x = M + i * (tw + 7.5);
@@ -938,7 +1011,7 @@
       var rr = [{ k: T.list, v: T.egp(S.list) }, { k: T.down, sub: T.downSub(pctOf(pl.down), T.day(S.rows[0].due)), v: T.egp(S.down), mark: true },
         { k: T.rest, sub: T.restSub, v: T.egp(S.list - S.down) }];
       if (S.discount) rr.push({ k: T.off, sub: T.offSub(pctOf(S.discountPct)), v: T.minus(S.discount), gold: true });
-      rr.push({ k: T.inst, sub: T.instSub(S.count, T.day(inst[0].due), T.day(inst[inst.length - 1].due)), v: T.each(S.each) });
+      rr.push({ k: T.inst, sub: T.instSub(S.count, T.day(inst[0].due), T.day(inst[inst.length - 1].due)), v: S.fixed && S.lastInstalment !== S.each ? T.eachLast(S.each, S.lastInstalment) : T.each(S.each) });
       rr.push({ k: T.total, sub: S.discount ? T.save(S.discount) : null, v: T.egp(S.payable), strong: true });
       y6 = rows(rr, M, 237, PW);
     }
@@ -1007,16 +1080,17 @@
     en: {
       headline: function (S, pl) {
         if (S.cash) return '🔥 ' + pctOf(S.discountPct) + '% off · cash 🔥';
-        return '🔥 ' + (S.discount ? pctOf(S.discountPct) + '% off · ' : '') + pctOf(pl.down) + '% down · ' + pl.years + ' years to pay 🔥';
+        return '🔥 ' + (S.discount ? pctOf(S.discountPct) + '% off · ' : '') + pctOf(pl.down) + '% down · ' + EN.term(S.months) + ' to pay 🔥';
       },
       project: '✨ VELN · New Cairo ✨',
-      size: function (x) { return '🔷 ' + EN.word[x.word] + ' · ' + Math.round(x.u.indoor) + ' m²'; },
+      size: function (x) { return x.zone ? '🔷 ' + x.u.zone.name + ' · ' + EN.shares(x.u.shares.length) + ' · ' + Math.round(x.u.area) + ' m²' : '🔷 ' + EN.word[x.word] + ' · ' + Math.round(x.u.indoor) + ' m²'; },
       where: function (x, l, fs) { return '🔷 ' + (fs || [x.f]).map(function (f) { return EN.floor[f]; }).join(' + ') + ' · ' + l.name; },
       price: function (v) { return '👈 Price EGP ' + v; },
       cash: function (v) { return '👈 *One payment, in cash: EGP ' + v + '* 🔥'; },
       down: function (v) { return '👈 *Down payment EGP ' + v + '* 🔥'; },
       quarter: function (v) { return '👈 *Every 3 months EGP ' + v + '* 🔥'; },
       monthly: function (v) { return '👈 That is about EGP ' + v + ' a month'; },
+      last: function (v) { return '👈 The last instalment EGP ' + v; },
       save: function (v, p) { return '👈 You save EGP ' + v + ' (' + p + '% off the rest)'; },
       saveCash: function (v) { return '👈 You save EGP ' + v; },
       total: function (v) { return '👈 Total EGP ' + v; },
@@ -1029,17 +1103,17 @@
     ar: {
       headline: function (S, pl) {
         if (S.cash) return '🔥خصم ' + isoPct(S.discountPct) + ' كاش🔥';
-        var yrs = pl.years + (pl.years <= 10 ? ' سنين' : ' سنة');
-        return '🔥' + (S.discount ? 'خصم ' + isoPct(S.discountPct) + ' و' : '') + 'تقسيط على ' + yrs + ' بمقدم ' + isoPct(pl.down) + '🔥';
+        return '🔥' + (S.discount ? 'خصم ' + isoPct(S.discountPct) + ' و' : '') + 'تقسيط على ' + AR.term(S.months) + ' بمقدم ' + isoPct(pl.down) + '🔥';
       },
       project: '✨ VELN · القاهرة الجديدة ✨',
-      size: function (x) { return '🔷 ' + AR.word[x.word] + ' ' + Math.round(x.u.indoor) + ' متر'; },
+      size: function (x) { return x.zone ? '🔷 ' + String(x.u.zone.name).replace(/^Zone/, 'زون') + ' · ' + AR.shares(x.u.shares.length) + ' · ' + Math.round(x.u.area) + ' متر' : '🔷 ' + AR.word[x.word] + ' ' + Math.round(x.u.indoor) + ' متر'; },
       where: function (x, l, fs) { return '🔷 ' + (fs || [x.f]).map(function (f) { return AR.floor[f]; }).join(' + ') + ' · النشاط ' + AR.line(l); },
       price: function (v) { return '👈السعر ' + v; },
       cash: function (v) { return '👈*الدفع كاش مرة واحدة ' + v + '*🔥'; },
       down: function (v) { return '👈*مقدم ' + v + '*🔥'; },
       quarter: function (v) { return '👈*قسط كل 3 شهور ' + v + '*🔥'; },
       monthly: function (v) { return '👈يعني حوالي ' + v + ' في الشهر'; },
+      last: function (v) { return '👈القسط الأخير ' + v; },
       save: function (v, p) { return '👈توفير ' + v + ' (خصم ' + LRI + p + '%' + PDI + ' على الباقي)'; },
       saveCash: function (v) { return '👈توفير ' + v; },
       total: function (v) { return '👈الإجمالي ' + v; },
@@ -1065,10 +1139,11 @@
       lines.push(T.down(money(S.down)));
       lines.push(T.quarter(money(S.each)));
       lines.push(T.monthly(money(Math.ceil(Math.max(S.each, S.lastInstalment || 0) / (S.everyMonths || 3)))));
+      if (S.fixed && S.lastInstalment !== S.each) lines.push(T.last(money(S.lastInstalment)));
       if (S.discount) lines.push(T.save(money(S.discount), pctOf(S.discountPct)));
       lines.push(T.total(money(S.payable)));
     }
-    lines.push('', T.delivery);
+    if (!w.zone) lines.push('', T.delivery);
     if (o.agent && (o.agent.name || o.agent.phone)) lines.push('', T.contact((o.agent.name || '').trim(), (o.agent.phone || '').trim()));
     return lines.join('\n');
   }
@@ -1077,11 +1152,11 @@
     var w = work(o), S = w.S, ar = o.lang === 'ar', T = ar ? AR : EN, lines = [];
     var x = w.one;
     lines.push('*VELN · ' + T.word[x.word] + ' ' + x.code + '*');
-    lines.push(w.floors.map(function (f) { return T.floor[f]; }).join(' + ') + ' · ' + T.m2(x.u.indoor));
+    lines.push(w.floors.map(function (f) { return T.floor[f]; }).join(' + ') + ' · ' + T.m2(x.u.indoor) + (w.zone ? ' · ' + T.shares(x.u.shares.length) : ''));
     lines.push((ar ? 'السعر: ' : 'Price: ') + T.egp(S.list));
     lines.push((ar ? 'نظام السداد: ' : 'Plan: ') + T.planLabel(w.pl));
     if (S.cash) lines.push((ar ? 'كاش: ' : 'Cash: ') + T.egp(S.payable));
-    else lines.push((ar ? 'مقدم ' : 'Down payment ') + T.egp(S.down) + ' · ' + (ar ? 'قسط كل 3 شهور ' : 'every 3 months ') + T.egp(S.each) + ' × ' + S.count);
+    else lines.push((ar ? 'مقدم ' : 'Down payment ') + T.egp(S.down) + ' · ' + (ar ? 'قسط كل 3 شهور ' : 'every 3 months ') + T.egp(S.each) + (S.fixed && S.lastInstalment !== S.each ? ' × ' + (S.count - 1) + (ar ? '، والأخير ' : ', the last ') + T.egp(S.lastInstalment) : ' × ' + S.count));
     if (o.agent && o.agent.name) lines.push('', o.agent.name + (o.agent.phone ? ' · ' + o.agent.phone : ''));
     return lines.join('\n');
   }
@@ -1147,7 +1222,7 @@
         ctx.font = '600 ' + cpx + 'px ' + F;
         while (ctx.measureText(x.code).width > W - 2 * PAD - lw - 30 && cpx > 48) { cpx -= 6; ctx.font = '600 ' + cpx + 'px ' + F; }
         ctx.fillText(x.code, tx, y + 144);
-        ctx.font = '500 44px ' + F; ctx.fillText(ar ? Math.round(x.u.indoor) + ' متر' : Math.round(x.u.indoor) + ' m²', tx, y + 206);
+        ctx.font = '500 44px ' + F; ctx.fillText((ar ? Math.round(x.u.indoor) + ' متر' : Math.round(x.u.indoor) + ' m²') + (w.zone ? ' · ' + T.shares(x.u.shares.length) : ''), tx, y + 206);
         ctx.fillStyle = TAUPE; ctx.font = '400 30px ' + F; ctx.textAlign = ar ? 'left' : 'right';
         ctx.fillText(w.floors.map(function (f) { return T.floor[f]; }).join(' + ') + ' · VELN', ex, y + 206);
         ctx.textAlign = ar ? 'right' : 'left';
@@ -1173,5 +1248,5 @@
     });
   }
 
-  N.offer = { work: work, pdf: pdf, caption: caption, message: message, picture: picture, plansFor: plansFor };
+  N.offer = { shareCodes: shareCodes, work: work, pdf: pdf, caption: caption, message: message, picture: picture, plansFor: plansFor };
 }(typeof window !== 'undefined' ? window : globalThis));

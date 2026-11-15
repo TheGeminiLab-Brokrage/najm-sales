@@ -92,6 +92,8 @@
         var m;
         if ((m = /^(\d+(?:\.\d+)?)%\s*down$/i.exec(part))) return 'مقدم ' + iso(m[1] + '%');
         if ((m = /^(\d+)\s*years?$/i.exec(part))) return iso(m[1]) + (+m[1] <= 10 ? ' سنين' : ' سنة');
+        /* the zone shares' terms: "6 years 3 months" */
+        if ((m = /^(\d+)\s*years?\s+(\d+)\s*months?$/i.exec(part))) return iso(m[1]) + (+m[1] <= 10 ? ' سنين' : ' سنة') + ' و' + iso(m[2]) + ' شهور';
         if ((m = /^(\d+(?:\.\d+)?)%\s*off$/i.exec(part))) return 'خصم ' + iso(m[1] + '%');
         if (/^cash$/i.test(part)) return 'كاش';
         if (/^semi cash$/i.test(part)) return 'نص كاش';

@@ -6,9 +6,9 @@
    ------------------------------------------------------------------ */
 
 var CONFIG = {
-  build: 19,
+  build: 20,
   /* the ?v= on every page's files: ONE number for all, so the CSS is one download, not one per page */
-  stamp: 25,
+  stamp: 26,
 
   /* the daily target under a sales agent's sales (Main Marks CONFIG.salesDay): at least 3 offers a day as a
      general broadcast to all the companies. Muhanad's rule from Main Marks, ASSUMED for Najm until Najm says. */
@@ -88,21 +88,32 @@ var CONFIG = {
          10% 7y dis. 10% · 15% 8y dis. 10% · 20% 9y dis. 10% · Cash 40%.
          Semi cash, the pharmacy offer and the hypermarket offer are gone;
          every unit, the pharmacy too, takes these four. Cash = one payment on
-         signing (ASSUMED, never answered). Medical zone shares: no discount
-         and two plans Najm will confirm, so ON HOLD (hold): no plan, no offer. */
+         signing (ASSUMED, never answered).
+         MEDICAL ZONE SHARES, their own two plans (Muhanad, 2026-11-15, from Najm:
+         "250k down + 10k a month" and "150k down + 15k a month" on a 1,000,000
+         share; then his answers the same day): the first instalment 3 months
+         after the contract and then every 3 months (30,000 or 45,000 a share);
+         per share (2 shares = twice each amount); no discount; no maintenance.
+         Written as shares of the price so several shares scale: 25% down, 3% a
+         quarter, 25 instalments to month 75; 15% down, 4.5% a quarter, 18 x
+         45,000 and a LAST 40,000 (his yes) to month 57. `months` is checked by
+         js/plans.js against the count it derives from the amounts. */
       plans: [
         { id: 'p10-7',  group: 'plans', label: '10% down · 7 years · 10% off', down: 0.10, years: 7, every: 3, discount: 0.10 },
         { id: 'p15-8',  group: 'plans', label: '15% down · 8 years · 10% off', down: 0.15, years: 8, every: 3, discount: 0.10 },
         { id: 'p20-9',  group: 'plans', label: '20% down · 9 years · 10% off', down: 0.20, years: 9, every: 3, discount: 0.10 },
-        { id: 'cash',   group: 'cash',  label: 'Cash · 40% off', cash: true, discount: 0.40 }
+        { id: 'cash',   group: 'cash',  label: 'Cash · 40% off', cash: true, discount: 0.40 },
+        { id: 'z25',    group: 'zone',  only: 'zone', label: '25% down · 6 years 3 months', down: 0.25, each: 0.03,  months: 75, every: 3, discount: 0, maintenance: false },
+        { id: 'z15',    group: 'zone',  only: 'zone', label: '15% down · 4 years 9 months', down: 0.15, each: 0.045, months: 57, every: 3, discount: 0, maintenance: false }
       ],
-      planGroups: { plans: 'Payment plans', cash: 'Cash' },
+      planGroups: { plans: 'Payment plans', cash: 'Cash', zone: 'Zone share plans' },
       planTerms: {
         instalmentEvery: 3, downOn: 'list', discountOn: 'balance', deliveryMonths: 42,
         maintenance: { pct: 0.08, on: 'list', dueMonthsBeforeDelivery: 6, label: 'Maintenance' }
       },
-      /* kinds whose plans Najm has not confirmed: shown, never offered */
-      hold: { zone: 'Najm will confirm the two payment plans for zone shares. Zone shares have no discount.' },
+      /* kinds whose plans Najm has not confirmed: shown, never offered (none today:
+         the zone shares' two plans came on 2026-11-15) */
+      hold: {},
 
       /* the lines, in the order of the building, from the street up */
       lines: [
