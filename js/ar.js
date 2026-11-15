@@ -320,7 +320,7 @@ window.NJ_AR = {
   'No companies are listed for you yet. Type the company.': 'مفيش شركات مسجلة باسمك لسه. اكتب اسم الشركة.',
   'Send it as': 'ابعته كـ',
   'Offer PDF': 'ملف الاوفر PDF',
-  'The 6-page offer, for one broker.': 'الاوفر في 6 صفحات، لبروكر واحد.',
+  'The 7-page offer, for one broker.': 'الاوفر في 7 صفحات، لبروكر واحد.',
   'WhatsApp post': 'بوست واتساب',
   'A picture and text, for groups.': 'صورة ونص، للجروبات.',
   'Cancel': 'إلغاء',

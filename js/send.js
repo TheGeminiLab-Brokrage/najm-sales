@@ -273,7 +273,7 @@
 
     card.appendChild(el('p', 'sd-k', N.t('Send it as')));
     var fmt = choices([
-      { v: 'pdf', t: N.t('Offer PDF'), s: N.t('The 6-page offer, for one broker.') },
+      { v: 'pdf', t: N.t('Offer PDF'), s: N.t('The 7-page offer, for one broker.') },
       { v: 'post', t: N.t('WhatsApp post'), s: N.t('A picture and text, for groups.') }
     ], function (v, byHand) { format = v; fmtByHand = !!byHand; fmt.set(v); check(); });
     card.appendChild(fmt);

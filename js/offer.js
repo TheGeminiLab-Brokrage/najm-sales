@@ -864,7 +864,7 @@
     put(where, M, 751);
     if (w.many) { font('normal', 8.6); ink(MUTED); put(codes, M, 767); }
     font('normal', 8.6); ink(MUTED); put(T.longDay(w.when), M, w.many ? 783 : 768);
-    font('normal', 6.2); ink(MUTED); put(T.sample + '  ·  ' + asOf, M, H - 21);
+    font('normal', 6.2); ink(MUTED); put(asOf, M, H - 21);   /* no "Sample for review": production (2026-11-15) */
 
     /* ---- 2. the line: its three pictures and what it is ---- */
     doc.addPage(); ground();
@@ -1069,7 +1069,7 @@
       font('normal', 6.4); ink(MUTED);
       put(T.footer(w.many ? T.oneDeal : T.word[w.word], title), M, H - 32);
       put(T.page(i, pages), W - M, H - 32, { align: 'right' });
-      font('normal', 5.6); put(T.sample + '  ·  ' + asOf, M, H - 21);
+      font('normal', 5.6); put(asOf, M, H - 21);
     }
     undo();
     return doc;

@@ -39,7 +39,7 @@
     sky.appendChild(s);
   }
 
-  document.getElementById('buildstamp').textContent = N.t('· build {n}', { n: CONFIG.build });
+  /* no build number on the sign-in page: it is a production app (Muhanad, 2026-11-15) */
 
   var form = document.getElementById('signin');
   var who = document.getElementById('who');
