@@ -206,13 +206,21 @@
   function merge(raw) {
     var rows = [];
     raw.slice().sort(function (a, b) { return a.at < b.at ? -1 : a.at > b.at ? 1 : 0; }).forEach(function (s) {
-      var d = new Date(s.at), day = isoOf(d), t = d.getHours() * 60 + d.getMinutes(), company = s.c || null, row = null, i, r;
+      var d = new Date(s.at), day = isoOf(d), t = d.getHours() * 60 + d.getMinutes(), company = s.cl ? null : (s.c || null), row = null, i, r;
+      /* 2026-11-17: a direct client is matched by name, never with a company or a broadcast */
+      var who = s.cl ? '@' + String(s.cl.name).toLowerCase() : company;
       for (i = rows.length - 1; i >= 0; i--) {
         r = rows[i];
-        if (r.m !== s.m || r.date !== day || r.units !== s.units || (r.c || null) !== company) continue;
-        if (company === null ? r.pl === (s.pl || '') : t - r.t <= TEN) { row = r; break; }
+        var rWho = r.cl ? '@' + String(r.cl.name).toLowerCase() : (r.c || null);
+        if (r.m !== s.m || r.date !== day || r.units !== s.units || rWho !== who || (r.mg || 0) !== (s.mg || 0)) continue;
+        if (who === null ? r.pl === (s.pl || '') : t - r.t <= TEN) { row = r; break; }
       }
-      if (!row) { row = { id: 'o' + s.id, k: 'offer', m: s.m, c: company, date: day, t: t, units: s.units, p: s.p || '', pl: s.pl || '', ch: s.ch, n: 0, np: 0, nq: 0 }; rows.push(row); }
+      if (!row) {
+        row = { id: 'o' + s.id, k: 'offer', m: s.m, c: company, date: day, t: t, units: s.units, p: s.p || '', pl: s.pl || '', ch: s.ch, n: 0, np: 0, nq: 0 };
+        if (s.cl) row.cl = s.cl;
+        if (s.mg) { row.mg = s.mg; row.lp = s.lp; row.op = s.op; }
+        rows.push(row);
+      }
       row.n++; if (s.ch === 'pdf') row.np++; else row.nq++;
       row.lt = t; row.lc = s.ch;
     });
@@ -221,7 +229,8 @@
   function rawSends() {
     var list = events.filter(function (e) { return e.k === 'offer'; }).map(function (e) {
       var x = e.detail || {};
-      return { id: 'db' + e.id, at: e.at, m: emailOf(e.person_id) || x.m, c: e.company_name || null, units: x.units || e.units, p: e.line, pl: e.plan, ch: e.channel };
+      return { id: 'db' + e.id, at: e.at, m: emailOf(e.person_id) || x.m, c: e.company_name || null, units: x.units || e.units, p: e.line, pl: e.plan, ch: e.channel,
+        cl: x.client && x.client.name ? x.client : null, mg: x.margin || 0, lp: x.list || 0, op: x.price || 0 };
     });
     outbox().filter(function (o) { return o.kind === 'send'; }).forEach(function (o) { list.push(o.row); });
     return list;
@@ -292,11 +301,19 @@
   N.store.records = records;
   N.store.send = function (o, email) {
     var units = o.units.slice().sort().join('+'), at = new Date().toISOString();
-    var row = { id: 'q' + Date.now(), at: at, m: email, c: o.company || null, units: units, p: o.line || '', pl: o.plan || '', ch: o.ch };
-    queue({ kind: 'send', row: row, body: { p_k: 'offer', p_company: o.company ? (companyId[o.company] || null) : null, p_company_name: o.company || '',
-      p_channel: o.ch || '', p_line: o.line || '', p_units: units, p_plan: o.plan || '', p_detail: { units: units, m: email }, p_at: at } });
+    /* 2026-11-17: a direct client (name, mobile, CRM ID) and the margin go in the event's detail: no new column,
+       nothing to paste in the database. A direct client's send names no company. */
+    var client = o.client && o.client.name ? { name: o.client.name, tel: o.client.tel || '', crm: o.client.crm || '' } : null;
+    var company = client ? null : (o.company || null);
+    var detail = { units: units, m: email };
+    if (client) detail.client = client;
+    if (o.margin) { detail.margin = o.margin; detail.list = o.list || 0; detail.price = o.price || 0; }
+    var row = { id: 'q' + Date.now(), at: at, m: email, c: company, units: units, p: o.line || '', pl: o.plan || '', ch: o.ch,
+      cl: client, mg: o.margin || 0, lp: o.list || 0, op: o.price || 0 };
+    queue({ kind: 'send', row: row, body: { p_k: 'offer', p_company: company ? (companyId[company] || null) : null, p_company_name: company || '',
+      p_channel: o.ch || '', p_line: o.line || '', p_units: units, p_plan: o.plan || '', p_detail: detail, p_at: at } });
     var rows = merge(rawSends());
-    return rows.filter(function (r) { return r.m === email && r.units === units && (r.c || null) === (o.company || null); }).pop() || null;
+    return rows.filter(function (r) { return r.m === email && r.units === units && (r.c || null) === company && (!client || (r.cl && r.cl.name === client.name)); }).pop() || null;
   };
   N.store.saveRecord = function (r) {
     queue({ kind: 'record', row: r, body: { p_k: r.k, p_company: companyId[r.c] || null, p_company_name: r.c || '', p_channel: '', p_line: r.p || '',

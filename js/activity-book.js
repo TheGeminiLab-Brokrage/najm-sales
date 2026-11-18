@@ -80,14 +80,22 @@
     if (real()) return N.store.send(o, s.email);
     var now = new Date(), day = iso(now), t = now.getHours() * 60 + now.getMinutes();
     var units = o.units.slice().sort().join('+'), company = o.company || null;
+    /* 2026-11-17: a DIRECT CLIENT of the agent (o.client: name, tel, crm) is its own kind of send, kept apart
+       from the brokers' requests and the broadcasts; the same unit to the same client within ten minutes is one */
+    var client = o.client && o.client.name ? { name: o.client.name, tel: o.client.tel || '', crm: o.client.crm || '' } : null;
+    var who = client ? '@' + client.name.toLowerCase() : company;
     var rows = read(SENT), row = null, i, r;
     for (i = rows.length - 1; i >= 0; i--) {
       r = rows[i];
-      if (r.m !== s.email || r.date !== day || r.units !== units || (r.c || null) !== company) continue;
-      if (company === null ? r.pl === (o.plan || '') : t - r.t <= TEN) { row = r; break; }
+      var rWho = r.cl ? '@' + r.cl.name.toLowerCase() : (r.c || null);
+      if (r.m !== s.email || r.date !== day || r.units !== units || rWho !== who || (r.mg || 0) !== (o.margin || 0)) continue;
+      if (who === null ? r.pl === (o.plan || '') : t - r.t <= TEN) { row = r; break; }
     }
     if (!row) {
-      row = { id: 's' + now.getTime() + '-' + rows.length, k: 'offer', m: s.email, c: company, date: day, t: t, units: units, p: o.line || '', pl: o.plan || '', ch: o.ch, n: 0, np: 0, nq: 0 };
+      row = { id: 's' + now.getTime() + '-' + rows.length, k: 'offer', m: s.email, c: client ? null : company, date: day, t: t, units: units, p: o.line || '', pl: o.plan || '', ch: o.ch, n: 0, np: 0, nq: 0 };
+      if (client) row.cl = client;
+      /* the margin (2026-11-17): the percent, the list price and what the client was offered */
+      if (o.margin) { row.mg = o.margin; row.lp = o.list || 0; row.op = o.price || 0; }
       rows.push(row);
     }
     row.n++; if (o.ch === 'pdf') row.np++; else row.nq++;
@@ -262,7 +270,9 @@
     (real() ? N.store.sends() : read(SENT)).forEach(function (r) {
       var date = fromIso(r.date), m = memberOf(r.m); if (!date || m === -1) return;
       var d = agoOf(date); if (d < 0 || d > SPAN) return;
-      var e = { id: r.id, mine: true, k: 'offer', c: companyAt(r.c), m: m, d: d, t: r.t, p: r.p, u: r.units, ch: r.ch, n: r.n, np: r.np, nq: r.nq, lt: r.lt, lc: r.lc };
+      var e = { id: r.id, mine: true, k: r.cl ? 'direct' : 'offer', c: r.cl ? null : companyAt(r.c), m: m, d: d, t: r.t, p: r.p, u: r.units, ch: r.ch, n: r.n, np: r.np, nq: r.nq, lt: r.lt, lc: r.lc };
+      if (r.cl) e.cl = r.cl;
+      if (r.mg) { e.mg = r.mg; e.lp = r.lp; e.op = r.op; }
       events.push(e);
     });
 

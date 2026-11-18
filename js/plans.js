@@ -217,7 +217,29 @@
     });
   }
 
-  var api = { schedule: schedule, addMonths: addMonths, egp: egp, perMonth: perMonth, applicable: applicable };
+
+  /* THE MARGIN (Muhanad, 2026-11-17): a sales agent may raise a unit's price by 5 to 15 percent, whole
+     steps, to keep room for an exception later. The raised unit then acts EXACTLY as if that were its
+     list price: the plan, the discount on the rest, the 8% maintenance and the price per m² all come from
+     it, and nothing the client sees says it was raised. Not rounded (his answer). One rule for the card
+     (js/project.js) and the offer (js/offer.js), so the screen and the PDF can never differ.
+       raise(u, pct) -> a copy of u with price, perM and maintenance raised; u itself untouched; the
+       copy's .orig is u. pct outside 5..15 or not whole -> throws (fail closed). 0 / null -> u itself. */
+  var MARGIN = { min: 5, max: 15 };
+  function raise(u, pct) {
+    if (!pct) return u;
+    if (pct !== Math.round(pct) || pct < MARGIN.min || pct > MARGIN.max) throw new Error('a margin must be a whole ' + MARGIN.min + ' to ' + MARGIN.max + ' percent');
+    var k = 1 + pct / 100, price = egp(u.price * k), out = {};
+    for (var key in u) if (Object.prototype.hasOwnProperty.call(u, key)) out[key] = u[key];
+    out.price = price;
+    if (u.perM) out.perM = egp(u.perM * k);
+    if (u.maintenance) out.maintenance = egp(u.maintenance * price / u.price);
+    out.orig = u.orig || u;
+    out.margin = pct;
+    return out;
+  }
+
+  var api = { raise: raise, margin: MARGIN, schedule: schedule, addMonths: addMonths, egp: egp, perMonth: perMonth, applicable: applicable };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else { NJ.plans = api; }
 }(typeof window !== 'undefined' ? window : globalThis));

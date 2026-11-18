@@ -146,7 +146,7 @@
     return N.iso(String(n)) + ' ' + (n === 0 || (r >= 3 && r <= 10) ? W[4] : W[5]);
   }
   var STATE = { active: t('Active'), quiet: t('Gone quiet'), inactive: t('Inactive'), never: t('Never asked') };
-  var KIND = { special: t('Special request'), broadcast: t('Broadcast'), meeting: t('Meeting'), reservation: t('Reservation'), contract: t('Contract'), cancel: t('Cancelled reservation'), orientation: t('Orientation'), workshop: t('Workshop') };
+  var KIND = { special: t('Special request'), broadcast: t('Broadcast'), direct: t('Direct client'), meeting: t('Meeting'), reservation: t('Reservation'), contract: t('Contract'), cancel: t('Cancelled reservation'), orientation: t('Orientation'), workshop: t('Workshop') };
   var PROD = { 'Commercial': t('Commercial'), 'Administrative': t('Administrative'), 'Medical': t('Medical') };
   var CH = { post: t('WhatsApp post'), pdf: t('Offer PDF') };
   var WHYL = { 'Client withdrew': t('Client withdrew'), 'Payment not made': t('Payment not made'), 'Moved to another unit': t('Moved to another unit'), 'Other': t('Other') };
@@ -285,7 +285,7 @@
     function rangeText() { var y = B.dateOf(period.to).getFullYear(); return period.from === period.to ? fmt(period.from) + ' ' + y : fmt(period.from) + ' – ' + fmt(period.to) + ' ' + y; }
     /* a split deal is half to each, wherever one person's sales are added up; the count stays one each */
     function tally(list) {
-      var o = { special: 0, broadcast: 0, meeting: 0, reservation: 0, contract: 0, cancel: 0, orientation: 0, workshop: 0, value: 0 };
+      var o = { special: 0, broadcast: 0, direct: 0, meeting: 0, reservation: 0, contract: 0, cancel: 0, orientation: 0, workshop: 0, value: 0 };
       list.forEach(function (e) { if (e.k === 'offer') o[e.c === null ? 'broadcast' : 'special']++; else o[e.k]++; if (e.k === 'contract') o.value += e.m2 !== undefined ? e.v / 2 : e.v; });
       o.offers = o.special + o.broadcast;
       return o;
@@ -315,7 +315,7 @@
       A.visits.forEach(function (x) { if (x.f.ok) A.led[x.e.k]++; });
       A.open = events.filter(function (e) { return e.k === 'reservation' && !e.end; }).sort(newest);
       /* what he entered in the dates: an offer is never entered, it is counted when it is sent */
-      A.entered = inPer.filter(function (e) { return e.k !== 'offer' && e.k !== 'cancel'; }).sort(function (a, b) { return newest(a, b) || (b.mine ? 1 : 0) - (a.mine ? 1 : 0) || String(b.id).localeCompare(String(a.id)); });
+      A.entered = inPer.filter(function (e) { return e.k !== 'offer' && e.k !== 'direct' && e.k !== 'cancel'; }).sort(function (a, b) { return newest(a, b) || (b.mine ? 1 : 0) - (a.mine ? 1 : 0) || String(b.id).localeCompare(String(a.id)); });
     }
 
     /* ---- small pieces --------------------------------------------------- */
@@ -454,7 +454,13 @@
     }
     function kindOf(e) { return e.k === 'offer' ? (e.c === null ? 'broadcast' : 'special') : e.k; }
     function people(e) { return e.m2 !== undefined ? t('{a} + {b} (split)', { a: nm(TEAM[e.m].name), b: nm(TEAM[e.m2].name) }) : nm(TEAM[e.m].name); }
-    function what(e) { return KIND[kindOf(e)] + (e.c !== null ? ' · ' + nm(book[e.c].name) : ''); }
+    function what(e) { return KIND[kindOf(e)] + (e.k === 'direct' && e.cl ? ' · <bdi>' + esc(e.cl.name) + '</bdi>' : e.c !== null && e.c !== undefined ? ' · ' + nm(book[e.c].name) : '') + marginChip(e); }
+    /* the margin (2026-11-17): a small "+7%" on a send that went out raised; a tap or hover says the list price */
+    function marginChip(e) {
+      if (!e.mg) return '';
+      var tip = e.lp ? t('Sent {p}% above the list price · list {a} · sent {b}', { p: e.mg, a: N.tx.egp(e.lp), b: N.tx.egp(e.op) }) : t('Sent {p}% above the list price', { p: e.mg });
+      return ' <button class="why mg-why" type="button" aria-expanded="false" dir="ltr">+' + e.mg + '%</button><span class="why-tip" role="note">' + esc(tip) + '</span>';
+    }
     /* HOW MANY TIMES IT WENT, in plain words (Main Marks builds 129 and 134): on a broadcast sent from
        this phone, and on a special request sent again to the same company within ten minutes */
     function sentTimes(e) {
@@ -477,11 +483,11 @@
       return out.join(' · ');
     }
     function unitText(e) { return nm(prod(e.p) + ' ' + String(e.u).split('+').join(', ')) + (e.area ? ' · ' + t('{n} m²', { n: e.area }) : '') + (e.v ? ' · ' + money(e.v) : ''); }
-    function detail(e) { return isVisit(e) ? followed(e).text : e.u ? unitText(e) + (e.k === 'offer' && e.ch ? ' · ' + CH[e.ch] : '') : prod(e.p) + (e.k === 'meeting' && e.on ? ' · ' + t('Online') : '') + (e.ch ? ' · ' + CH[e.ch] : ''); }
+    function detail(e) { return isVisit(e) ? followed(e).text : e.u ? unitText(e) + ((e.k === 'offer' || e.k === 'direct') && e.ch ? ' · ' + CH[e.ch] : '') : prod(e.p) + (e.k === 'meeting' && e.on ? ' · ' + t('Online') : '') + (e.ch ? ' · ' + CH[e.ch] : ''); }
     function feed(list) {
       return '<div class="feed">' + list.map(function (e) { var how = sentHow(e); return '<div><time>' + when(e) + '</time><span>' + what(e) + sentTimes(e) + '<small>' + detail(e) + (e.k === 'cancel' ? ' · ' + WHYL[e.why] : '') + '</small>' + (how ? '<small class="how">' + how + '</small>' : '') + '</span></div>'; }).join('') + '</div>';
     }
-    function kv(list) { return '<div class="kv' + (list.length === 4 ? ' k4' : '') + '">' + list.map(function (x) { return '<div><b>' + x[0] + '</b><span>' + x[1] + '</span></div>'; }).join('') + '</div>'; }
+    function kv(list, cls) { return '<div class="kv' + (cls ? ' ' + cls : list.length === 4 ? ' k4' : '') + '">' + list.map(function (x) { return '<div><b>' + x[0] + '</b><span>' + x[1] + '</span></div>'; }).join('') + '</div>'; }
 
     function head(heading) {
       return '<div class="hd my"><p class="eyebrow">' + nm(WHO.name) + ' · ' + title(WHO.title) + '</p><h1>' + heading + '</h1><button class="when" id="when" type="button" aria-expanded="' + menuOpen + '">' + svg('cal') + periodName() + '</button></div>' +
@@ -512,7 +518,7 @@
     /* MY SALES (build 121): the figure, the time before, what is reserved and not signed, four bars from
        request to contract; under them today's broadcasts against the daily target (build 134) */
     function cardSales() {
-      var n = A.tot, held = A.open.reduce(function (a, e) { return a + (e.m2 !== undefined ? e.v / 2 : e.v); }, 0), max = Math.max(n.special, 1);
+      var n = A.tot, held = A.open.reduce(function (a, e) { return a + (e.m2 !== undefined ? e.v / 2 : e.v); }, 0), max = Math.max(n.special, n.direct, 1);
       var fbar = function (cls, label, v) { return '<div class="' + cls + '"><span>' + label + '</span><i style="--w:' + (v / max).toFixed(3) + '"></i><b>' + v + '</b></div>'; };
       var fig = '<span data-n="' + mil(n.value) + '" data-dec="1">' + mil(n.value) + '</span>';
       return '<section class="card"><h2>' + t('My sales') + ' <em>' + periodName() + '</em></h2>' +
@@ -520,7 +526,7 @@
         '<span>' + (n.contract ? t('{x} signed in these dates', { x: '<b>' + count(n.contract, 'contract') + '</b>' }) : t('No contract signed in these dates')) +
           (A.prev ? ' · ' + (A.prevBase === 'lastweek' ? t('last week by this day: {v}', { v: '<b>' + money(A.prev.value) + '</b>' }) : t('the time before: {v}', { v: '<b>' + money(A.prev.value) + '</b>' })) : '') + '</span>' +
         (A.open.length ? '<span>' + t('{v} reserved and not signed yet · {x} open today', { v: '<b>' + money(held) + '</b>', x: count(A.open.length, 'reservation') }) + '</span>' : '') + '</div>' +
-        '<div class="fun" role="img" aria-label="' + esc(t('From request to contract')) + '">' + fbar('f1', t('Special requests'), n.special) + fbar('f2', t('Meetings'), n.meeting) + fbar('f3', t('Reservations'), n.reservation) + fbar('f4', t('Contracts'), n.contract) + '</div>' + dutyToday() + '</section>';
+        '<div class="fun" role="img" aria-label="' + esc(t('From request to contract')) + '">' + fbar('f1', t('Special requests'), n.special) + fbar('f1 fd', t('Direct clients'), n.direct) + fbar('f2', t('Meetings'), n.meeting) + fbar('f3', t('Reservations'), n.reservation) + fbar('f4', t('Contracts'), n.contract) + '</div>' + dutyToday() + '</section>';
     }
     /* always today, whatever dates the page shows; one broadcast is one offer, however many times it went.
        The target is the settings file's (CONFIG.salesDay); with none, there is no line. */
@@ -1036,7 +1042,7 @@
     var TILE = { orientation: t('Orientations'), workshop: t('Workshops'), offers: t('Offers sent'), meeting: t('Meetings'), reservation: t('Reservations'), contract: t('Contracts') };
     function tileList(k) {
       if (k === 'orientation' || k === 'workshop') return A.visits.filter(function (x) { return x.e.k === k; });
-      if (k === 'offers') return A.list.filter(function (e) { return e.k === 'offer'; }).sort(newest);
+      if (k === 'offers') return A.list.filter(function (e) { return e.k === 'offer' || e.k === 'direct'; }).sort(newest);
       if (k === 'meeting') return A.list.filter(function (e) { return e.k === 'meeting'; }).sort(newest);
       return A.deals.filter(function (e) { return e.k === k || (k === 'reservation' && e.k === 'cancel'); });
     }
@@ -1044,7 +1050,7 @@
       var n = A.tot, list = tileList(k), body, none = '<p class="note">' + t('None recorded in these dates.') + '</p>';
       if (k === 'offers') {
         /* on his own page this sheet is the only place his broadcasts of the dates are counted */
-        body = kv([[n.special, t('Special requests')], [n.broadcast, t('Broadcasts')], [distinct(list, 'c').length, t('Companies asked')]]) +
+        body = kv([[n.special, t('Special requests')], [n.direct, t('Direct clients')], [n.broadcast, t('Broadcasts')], [distinct(list, 'c').length, t('Companies asked')]], 'k22') +
           '<p class="note">' + t('These are counted by themselves when you send an offer. There is nothing to type. A broadcast is counted once, however many times you send it.') + '</p>' +
           (list.length ? '<p class="sec">' + t('Newest first') + '</p>' + feed(list.slice(0, 12)) + (list.length > 12 ? '<p class="note">' + t('{n} more in these dates.', { n: list.length - 12 }) + '</p>' : '') : '');
       } else if (k === 'orientation' || k === 'workshop') {

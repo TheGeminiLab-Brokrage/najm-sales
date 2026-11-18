@@ -2,7 +2,8 @@
    Najm: SENDING AN OFFER (build 8), Main Marks' send step (js/lineflow.js
    askAudience + deliver, js/post.js open) for Najm:
 
-     1. Who is this offer for? A broker's special request (which company
+     1. Who is this offer for? (2026-11-17: two sides, swiped: a BROKER, or a DIRECT CLIENT of the
+        agent: name, then a mobile or the CRM ID.) A broker's special request (which company
         asked: the agent's OWN companies, js/brokers.js) or a general
         broadcast (groups, channels, status).
      2. Send it as: the offer PDF (seven pages, for one broker) or a WhatsApp
@@ -227,16 +228,43 @@
       return ready[lg];
     }
 
+    /* the margin (2026-11-17): what the client is offered and what the list price was, for the record only */
+    var mg = o.margin || 0, offered = 0, listed0 = 0;
+    if (mg) {
+      try {
+        listed0 = o.items.reduce(function (n, x) { return n + (x.u ? x.u.price : 0); }, 0);
+        offered = N.offer.work(o).one.u.price;
+      } catch (e) { N.toast(N.t('This offer cannot be sent: {why}', { why: e.message })); return; }
+    }
+
     var S = sheet('sdWhoH'), card = S.card;
-    card.appendChild(el('p', 'sd-k', N.t('Before you send') + ' · ' + codes.join(', ')));
+    var kHead = el('p', 'sd-k', N.t('Before you send') + ' · ' + codes.join(', '));
+    if (mg) { var mchip = el('span', 'mg-chip', '+' + mg + '%'); mchip.dir = 'ltr'; kHead.appendChild(mchip); }
+    card.appendChild(kHead);
+
+    /* TWO SIDES (Muhanad, 2026-11-17): a broker, as before, or a DIRECT CLIENT the agent deals with
+       himself, so those clients are on record. A swipe or a tap changes side. */
+    var seg = el('div', 'sd-seg'); seg.setAttribute('role', 'tablist');
+    var thumb = el('span', 'sd-thumb'); seg.appendChild(thumb);
+    var tabs = [N.t('Broker'), N.t('Direct client')].map(function (t, i) {
+      var b = el('button', 'sd-tab', t); b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.side = i;
+      b.addEventListener('click', function () { toSide(i); });
+      seg.appendChild(b); return b;
+    });
+    card.appendChild(seg);
+    var view = el('div', 'sd-view'), track = el('div', 'sd-track');
+    view.appendChild(track); card.appendChild(view);
+    var pane1 = el('div', 'sd-pane'), pane2 = el('div', 'sd-pane');
+    track.appendChild(pane1); track.appendChild(pane2);
+
     var h = el('h3', 'sd-h', N.t('Who is this offer for?')); h.id = 'sdWhoH';
-    card.appendChild(h);
-    var audience = null, format = null, fmtByHand = false;
-    var who = choices([
+    pane1.appendChild(h);
+    var audience = null, who = null, format = null, fmtByHand = false, side = 0;
+    var whoOpts = choices([
       { v: 'broker', t: N.t('Special request'), s: N.t('A broker asked for it, for their company.') },
       { v: 'broadcast', t: N.t('General broadcast'), s: N.t('Groups, channels, status. No single company.') }
     ], function (v) { pickAudience(v); });
-    card.appendChild(who);
+    pane1.appendChild(whoOpts);
 
     var co = el('div', 'sd-co');
     var lab = el('label', 'sd-k', N.t('Which company asked?')); lab.setAttribute('for', 'sdCo');
@@ -251,7 +279,7 @@
     coNote.textContent = mine.length ? (me.allCompanies ? N.t('All {n} companies (demo account).', { n: mine.length }) : N.t('{n} companies you handle.', { n: mine.length })) : N.t('No companies are listed for you yet. Type the company.');
     co.appendChild(coNote);
     co.hidden = true;
-    card.appendChild(co);
+    pane1.appendChild(co);
     function listed(v) { v = v.trim().toLowerCase(); return mine.filter(function (n) { return n.toLowerCase() === v; })[0] || null; }
     function paintDrop() {
       var m = matches(mine, inp.value, 8);
@@ -271,6 +299,27 @@
     inp.addEventListener('focus', paintDrop);
     inp.addEventListener('blur', function () { setTimeout(function () { drop.hidden = true; }, 150); });
 
+    /* the direct client: the name is a must; then a mobile OR the CRM ID, either one (his rule) */
+    pane2.appendChild(el('h3', 'sd-h', N.t('Who is the client?')));
+    function field(id, label, type, ph, box) {
+      var l2 = el('label', 'sd-k', label); l2.setAttribute('for', id);
+      var i2 = el('input', 'sd-in'); i2.id = id; i2.type = type; i2.autocomplete = 'off'; i2.placeholder = ph;
+      box.appendChild(l2); box.appendChild(i2);
+      i2.addEventListener('input', check);
+      return i2;
+    }
+    var cName = field('sdClient', N.t('Client name'), 'text', N.t('Full name'), pane2);
+    var pair = el('div', 'sd-pair'), half1 = el('div'), half2 = el('div');
+    var cTel = field('sdTel', N.t('Mobile'), 'tel', '01x xxxx xxxx', half1);
+    cTel.inputMode = 'tel'; cTel.dir = 'ltr';
+    var cCrm = field('sdCrm', N.t('CRM ID'), 'text', N.t('e.g. 48213'), half2);
+    cCrm.dir = 'ltr';
+    pair.appendChild(half1); pair.appendChild(el('span', 'sd-or', N.t('or'))); pair.appendChild(half2);
+    pane2.appendChild(pair);
+    var need = el('p', 'sd-note');
+    pane2.appendChild(need);
+    var telOk = function () { return cTel.value.replace(/\D/g, '').length >= 7; };
+
     card.appendChild(el('p', 'sd-k', N.t('Send it as')));
     var fmt = choices([
       { v: 'pdf', t: N.t('Offer PDF'), s: N.t('The 7-page offer, for one broker.') },
@@ -288,11 +337,26 @@
     cancel.addEventListener('click', S.close);
 
     function pickAudience(v) {
-      audience = v; who.set(v);
+      who = v; whoOpts.set(v);
       co.hidden = v !== 'broker';
       if (v === 'broker' && !inp.value && last.company && listed(last.company)) inp.value = listed(last.company);
-      if (!fmtByHand) { format = v === 'broker' ? 'pdf' : 'post'; fmt.set(format); }
+      if (side === 0) audience = v;
+      if (!fmtByHand) { format = v === 'broadcast' ? 'post' : 'pdf'; fmt.set(format); }
       if (format === 'pdf') prepare(lang);
+      check();
+    }
+    function toSide(i, still) {
+      side = i;
+      track.style.transform = 'translateX(' + (N.lang === 'ar' ? 50 : -50) * i + '%)';
+      thumb.style.transform = 'translateX(' + (N.lang === 'ar' ? -100 : 100) * i + '%)';
+      tabs.forEach(function (t, j) { t.setAttribute('aria-selected', String(j === i)); });
+      /* the side that is not shown cannot be reached by the keyboard either */
+      pane1.inert = i !== 0; pane2.inert = i !== 1;
+      audience = i === 1 ? 'direct' : who;
+      if (i === 1 && !fmtByHand) { format = 'pdf'; fmt.set(format); }
+      if (i === 0 && who && !fmtByHand) { format = who === 'broadcast' ? 'post' : 'pdf'; fmt.set(format); }
+      if (format === 'pdf') prepare(lang);
+      if (!still && i === 1 && !cName.value && !handheld()) cName.focus();
       check();
     }
     function check() {
@@ -300,36 +364,75 @@
       var waiting = format === 'pdf' && !m;
       var failed = format === 'pdf' && m && m.error;
       go.textContent = waiting ? N.t('Preparing the offer PDF…') : format === 'post' ? N.t('Make the post') : N.t('See the offer PDF');
+      var noName = !cName.value.trim(), noReach = !telOk() && !cCrm.value.trim();
+      need.textContent = noName ? N.t('Add the client’s name.') : noReach ? (cTel.value.trim() ? N.t('Check the mobile number, or add the CRM ID.') : N.t('Add a mobile or the CRM ID.')) : N.t('Saved to My activity as a direct client.');
+      need.classList.toggle('sd-warn', noName || noReach);
       note.textContent = failed ? N.t('The offer PDF could not be made: {why}', { why: m.error.message })
         : audience === 'broker' && inp.value.trim() && !listed(inp.value) ? N.t('Not one of your companies. Check the name before sending.') : '';
-      go.disabled = !audience || !format || waiting || !!failed || (audience === 'broker' && !inp.value.trim());
+      var hh = (side ? pane2 : pane1).offsetHeight;
+      if (hh) view.style.height = hh + 'px';
+      go.disabled = !audience || !format || waiting || !!failed || (audience === 'broker' && !inp.value.trim()) || (audience === 'direct' && (noName || noReach));
     }
     fmt.addEventListener('click', function () { if (format === 'pdf') prepare(lang); });
+
+    /* the swipe: the sides follow the finger, then settle on the nearer one */
+    var x0 = null, y0 = 0, wv = 0, moved = false;
+    view.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (e.target.closest('input, button, select, .sd-drop')) return;
+      x0 = e.clientX; y0 = e.clientY; wv = view.clientWidth; moved = false;
+    });
+    view.addEventListener('pointermove', function (e) {
+      if (x0 === null) return;
+      var dx = e.clientX - x0, rtl = N.lang === 'ar' ? -1 : 1;
+      if (!moved && Math.abs(dx) < 10) return;
+      if (!moved && Math.abs(e.clientY - y0) > Math.abs(dx)) { x0 = null; return; }
+      moved = true; card.classList.add('sd-drag');
+      var f = Math.max(-1, Math.min(0, -side + rtl * dx / wv));
+      track.style.transform = 'translateX(' + (50 * f * rtl) + '%)';
+      thumb.style.transform = 'translateX(' + (-100 * f * rtl) + '%)';
+    });
+    function swipeEnd(e) {
+      if (x0 === null) return;
+      var dx = (e.clientX - x0) * (N.lang === 'ar' ? -1 : 1); x0 = null; card.classList.remove('sd-drag');
+      if (!moved) return;
+      toSide(dx < -wv * .2 ? 1 : dx > wv * .2 ? 0 : side, true);
+    }
+    view.addEventListener('pointerup', swipeEnd); view.addEventListener('pointercancel', swipeEnd); view.addEventListener('pointerleave', swipeEnd);
 
     go.addEventListener('click', function () {
       if (go.disabled) return;
       var to = { audience: audience, company: audience === 'broker' ? (listed(inp.value) || inp.value.trim()) : null };
-      remember(LAST_KEY, to);
+      if (audience === 'direct') to.client = { name: cName.value.trim(), tel: telOk() ? cTel.value.trim() : '', crm: cCrm.value.trim() };
+      /* a client's details are not kept on the phone for the next offer; only which side was used */
+      remember(LAST_KEY, audience === 'direct' ? { audience: 'direct', company: last.company || null } : to);
       S.close();
       /* build 13: a send that left the phone is counted in My activity (js/activity-book.js), as Main Marks counts
-         every send: to a company a special request, to no one a broadcast. Opening a sheet and closing it is not a send. */
+         every send: to a company a special request, to no one a broadcast, to a client of his own a direct client.
+         Opening a sheet and closing it is not a send. The margin and the list price go with it (2026-11-17). */
       var counted = function (ch) {
         if (!N.activity) return;
-        try { N.activity.sent({ company: to.company, units: codes, line: o.line && o.line.name, plan: (o.plan && o.plan.id) || '', ch: ch }); } catch (e) { /* the send itself goes on */ }
+        try {
+          N.activity.sent({ company: to.company, client: to.client || null, units: codes, line: o.line && o.line.name, plan: (o.plan && o.plan.id) || '', ch: ch,
+            margin: mg, list: mg ? listed0 : 0, price: mg ? offered : 0 });
+        } catch (e) { /* the send itself goes on */ }
       };
       if (format === 'post') { post(o, to, lang, counted); return; }
       showPdf(made[lang], N.offer.message(Object.assign({}, o, { lang: lang, agent: { name: me.name } })), to, codes, lang, counted);
     });
 
     S.show();
-    if (last.audience) pickAudience(last.audience); else check();
-    S.box.querySelector('.sd-opt').focus();
+    if (last.audience === 'direct') { toSide(1, true); }
+    else { toSide(0, true); if (last.audience) pickAudience(last.audience); else check(); }
+    if (side === 1) { if (handheld()) tabs[1].focus(); else cName.focus(); } else S.box.querySelector('.sd-opt').focus();
   }
 
   /* build 9: the PDF, made, is SHOWN first, then kept or sent from here. WhatsApp is one way
      out, not the only one: api.whatsapp.com is blocked on some networks, and the hidden
      download it relied on is refused inside the claude.ai frame. Every button is its own tap
      with the file already made, so an iPhone still opens its share sheet. */
+  /* who the offer is for, as the PDF and post sheets head it */
+  function whoFor(to) { return to.audience === 'direct' && to.client ? to.client.name : to.audience === 'broker' && to.company ? to.company : N.t('General broadcast'); }
   function showPdf(made, text, to, codes, lang, counted) {
     var file;
     try { file = new File([made.blob], made.name, { type: 'application/pdf' }); } catch (e) { file = made.blob; file.name = made.name; }
@@ -337,7 +440,7 @@
     var S = sheet('sdPdfH'), card = S.card;
     card.classList.add('sd-post');
     var head = el('div', 'sd-head'), hl = el('div');
-    hl.appendChild(el('p', 'sd-k', N.t('Offer PDF') + ' · ' + (to.audience === 'broker' && to.company ? to.company : N.t('General broadcast'))));
+    hl.appendChild(el('p', 'sd-k', N.t('Offer PDF') + ' · ' + whoFor(to)));
     var h = el('h3', 'sd-h', codes.join(' + ')); h.id = 'sdPdfH';
     hl.appendChild(h);
     head.appendChild(hl);
@@ -422,7 +525,7 @@
     card.classList.add('sd-post');
     var head = el('div', 'sd-head');
     var hl = el('div');
-    hl.appendChild(el('p', 'sd-k', N.t('WhatsApp post') + ' · ' + (to.audience === 'broker' && to.company ? to.company : N.t('General broadcast'))));
+    hl.appendChild(el('p', 'sd-k', N.t('WhatsApp post') + ' · ' + whoFor(to)));
     var h = el('h3', 'sd-h', codes.join(' + ')); h.id = 'sdPostH';
     hl.appendChild(h);
     head.appendChild(hl);

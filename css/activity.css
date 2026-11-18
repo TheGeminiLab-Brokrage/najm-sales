@@ -300,3 +300,9 @@ html.is-locked .sbar-wrap { opacity: 0; visibility: hidden; transition: opacity 
   .scr > .wide { grid-column: 1 / -1; }
   .sheet { width: 560px; max-height: 86dvh; bottom: 24px; border-radius: 24px; border: 1px solid var(--edge); transform: translateY(calc(100% + 40px)); }
 }
+
+/* ---- 2026-11-17: direct clients and the margin ------------------------------------------------------ */
+.kv.k22 { grid-template-columns: repeat(2, 1fr); }
+.fun .fd i { background: var(--acc); }
+.why.mg-why { display: inline-block; margin-inline-start: 4px; padding: 1px 7px; border: 0; border-radius: 999px; background: var(--acc); color: #0E1828;
+  font-size: 10.5px; font-weight: 600; line-height: 1.5; cursor: pointer; vertical-align: 1px; font-variant-numeric: tabular-nums; }

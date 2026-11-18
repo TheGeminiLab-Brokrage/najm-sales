@@ -251,6 +251,7 @@
     if (o.items.some(function (x) { return x.z; })) {
       /* a zone goes alone: one zone, its shares, never mixed with units */
       if (o.items.length !== 1) throw new Error('a zone share is offered on its own');
+      if (o.margin) throw new Error('a margin is for units, not zone shares');
       var zi = zoneItem(o.items[0], p, pl, book, when), ZS = zi.s;
       if (ZS.rows.reduce(function (n, r) { return n + r.amount; }, 0) !== ZS.payable) throw new Error('the schedule does not add up');
       return { p: p, l: l, pl: pl, when: when, items: [zi], one: zi, S: ZS, floors: [zi.f], many: false, joined: false, word: 'zone', zone: true };
@@ -260,6 +261,8 @@
       /* fail closed: the screen prevents all of these, but this is what a buyer acts on */
       if (!u || !fl || u.status !== 'Available' || u.shares) throw new Error('unit ' + (u && u.no) + ' is not available, so it cannot be offered');
       if (!plansFor(p, u.kind).some(function (y) { return y.id === pl.id; })) throw new Error('the plan ' + pl.label + ' is not offered on ' + fl.code + '-' + u.no);
+      /* the margin (2026-11-17): from here on the raised unit IS the unit; nothing printed says otherwise */
+      if (o.margin) u = N.plans.raise(u, o.margin);
       var s = N.plans.schedule({ listPrice: u.price, discount: pl.discount || 0, plan: pl, terms: p.planTerms, from: when });
       if (!s) throw new Error('no schedule could be worked out for ' + fl.code + '-' + u.no);
       if (s.broken) throw new Error('the schedule does not add up: ' + s.broken.join('; '));
@@ -508,7 +511,7 @@
       ctx.imageSmoothingQuality = 'high';
       ctx.fillStyle = WHITE; ctx.fillRect(0, 0, c.width, c.height);
       ctx.drawImage(im, 0, 0, c.width, c.height);
-      fadePrinted(ctx, fl.units || [], mine.map(function (x) { return x.u; }), k);
+      fadePrinted(ctx, fl.units || [], mine.map(function (x) { return x.u.orig || x.u; }), k);
       ctx.save();
       ctx.beginPath(); ctx.rect(0, 0, c.width, c.height);
       mine.forEach(function (x) { path(ctx, x.u.poly, 0, 0, k); });

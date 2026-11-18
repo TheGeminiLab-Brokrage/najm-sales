@@ -321,6 +321,10 @@
        only while "Select several units" is on, so a shop and the one upstairs can
        go together. */
     var many = false, picks = [], lastPlan = null;
+    /* the margin (Muhanad, 2026-11-17): 5 to 15 percent on the price, for an exception later. Off each
+       time a new unit opens (fail closed: nothing goes out raised unless the agent chose it on this card);
+       the percent he last chose is kept. The raised unit acts as the list price everywhere (NJ.plans.raise). */
+    var margin = { on: false, pct: 7, unit: null };
     var s1 = step(1, N.t('Choose a floor')), s2 = step(2, N.t('Choose a unit')), s3 = step(3, N.t('Unit details'));
     s2.node.hidden = true; s3.node.hidden = true;
     /* Find a unit, the closed bar above step 1 (Main Marks). It owns nothing: it reads
@@ -796,20 +800,89 @@
       t.appendChild(el('span', 'u-big', fl.code + '-' + u.no));
       t.appendChild(el('span', 'u-sub', u.code + ' · ' + N.tx.floor(f) + ' · ' + N.t(l.name)));
       c.appendChild(t);
-      c.appendChild(priceLine(u.price));
-      c.appendChild(facts([
-        ['Indoor', m2(u.indoor)],
-        ['Outdoor', u.outdoor ? m2(u.outdoor) : ''],
-        ['Priced on', m2(u.area)],
-        ['Price per m²', N.tx.egp(u.perM)],
-        ['Delivered', delivered(l)],
-        ['Delivery', N.t('3.5 years from the contract')],
-        ['Maintenance', u.maintenance ? pct(u.maintenance / u.price) + ' · ' + N.tx.egp(u.maintenance) : '']
-      ]));
+      if (margin.unit !== u) { margin.on = false; margin.unit = u; }
+      var pLine = priceLine(u.price);
+      c.appendChild(pLine);
+      var mBox = marginBox();
+      c.appendChild(mBox);
+      var factsAt = el('div');
+      c.appendChild(factsAt);
       if (l.operator) c.appendChild(el('p', 'l-op', N.t(l.operator)));
-      c.appendChild(planBlock([{ price: u.price, kind: u.kind, u: u, f: f }], rowOf(f, u.no)));
+      var block = planBlock([{ price: u.price, kind: u.kind, u: u, f: f }], rowOf(f, u.no));
+      c.appendChild(block);
       c.appendChild(el('p', 'src', asOf(book)));
+      /* every figure from the unit as it goes out: raised when the margin is on */
+      function paintUnit(moved) {
+        var r = N.plans.raise(u, margin.on ? margin.pct : 0);
+        pLine.set(r.price);
+        mBox.say(u.price, r.price);
+        factsAt.textContent = '';
+        factsAt.appendChild(facts([
+          ['Indoor', m2(u.indoor)],
+          ['Outdoor', u.outdoor ? m2(u.outdoor) : ''],
+          ['Priced on', m2(u.area)],
+          ['Price per m²', N.tx.egp(r.perM)],
+          ['Delivered', delivered(l)],
+          ['Delivery', N.t('3.5 years from the contract')],
+          ['Maintenance', r.maintenance ? pct(r.maintenance / r.price) + ' · ' + N.tx.egp(r.maintenance) : '']
+        ]));
+        if (moved) block.setItems([{ price: r.price, kind: u.kind, u: u, f: f }]);
+      }
+      mBox.onChange = function () { paintUnit(true); };
+      paintUnit(margin.on);
       s3.body.appendChild(c);
+    }
+
+    /* THE MARGIN BAR (2026-11-17): a switch, then a bar from 5 to 15 percent in whole steps that says
+       the percent and the pounds added while it moves. Only the agent sees the list price line. */
+    function marginBox() {
+      var M = N.plans.margin, w = el('div', 'mg');
+      var head = el('button', 'mg-row');
+      head.type = 'button'; head.setAttribute('role', 'switch');
+      var tx = el('span', 'mg-tx');
+      tx.appendChild(el('span', 'mg-t', N.t('Add a margin')));
+      tx.appendChild(el('span', 'mg-s', N.t('Room for an exception later')));
+      head.appendChild(tx);
+      head.appendChild(el('span', 'mg-sw'));
+      w.appendChild(head);
+      var body = el('div', 'mg-body');
+      var big = el('div', 'mg-big'), bp = el('b'), be = el('span');
+      bp.dir = 'ltr';
+      big.appendChild(bp); big.appendChild(be);
+      body.appendChild(big);
+      var rg = el('input', 'mg-rg');
+      rg.type = 'range'; rg.min = M.min; rg.max = M.max; rg.step = 1;
+      rg.setAttribute('aria-label', N.t('Margin on the price, percent'));
+      body.appendChild(rg);
+      var ticks = el('div', 'mg-ticks');
+      for (var i = M.min; i <= M.max; i++) ticks.appendChild(el('span'));
+      body.appendChild(ticks);
+      var list = el('p', 'mg-sum');
+      body.appendChild(list);
+      w.appendChild(body);
+      function show() {
+        w.classList.toggle('on', margin.on);
+        head.setAttribute('aria-checked', String(margin.on));
+        body.hidden = !margin.on;
+        rg.value = margin.pct;
+        rg.style.setProperty('--f', ((margin.pct - M.min) / (M.max - M.min) * 100) + '%');
+        [].forEach.call(ticks.children, function (s, j) {
+          var v = j + M.min, label = v === margin.pct || v === M.min || v === 10 || v === M.max;
+          s.textContent = label ? v + '%' : '·';
+          s.className = v === margin.pct ? 'on' : '';
+        });
+      }
+      head.addEventListener('click', function () { margin.on = !margin.on; show(); if (w.onChange) w.onChange(); });
+      rg.addEventListener('input', function () { margin.pct = Number(rg.value); show(); if (w.onChange) w.onChange(); });
+      w.say = function (listPrice, raised) {
+        bp.textContent = '+' + margin.pct + '%';
+        /* Arabic: the signed figure kept whole, the currency after it (no stray plus at the line's end) */
+        if (N.lang === 'ar') { be.dir = 'rtl'; be.innerHTML = '<bdi dir="ltr">+' + money(raised - listPrice) + '</bdi> ' + N.t('EGP'); }
+        else { be.dir = 'ltr'; be.textContent = '+ ' + N.tx.egp(raised - listPrice); }
+        list.textContent = N.t('List price {v} · only you see this', { v: money(listPrice) });
+      };
+      show();
+      return w;
     }
 
     /* several units, one deal: each row can be taken off; every figure is the sum of
@@ -825,13 +898,20 @@
       t.appendChild(el('span', 'u-big', picks.map(function (x) { return book.floors[x.f].code + '-' + x.o.no; }).join(' + ')));
       t.appendChild(el('span', 'u-sub', N.tx.floors(floors) + ' · ' + N.t(l.name)));
       c.appendChild(t);
-      c.appendChild(priceLine(sum('price')));
+      if (margin.unit !== 'group') { margin.on = false; margin.unit = 'group'; }
+      var raised = function () { return picks.map(function (x) { return N.plans.raise(x.o, margin.on ? margin.pct : 0); }); };
+      var rsum = function (k) { return raised().reduce(function (n, u) { return n + (u[k] || 0); }, 0); };
+      var pLine = priceLine(sum('price'));
+      c.appendChild(pLine);
+      var mBox = marginBox();
+      c.appendChild(mBox);
       var list = el('div', 'u-group');
       picks.forEach(function (x, i) {
         var u = x.o, r = el('div', 'u-g');
         r.appendChild(el('span', 'u-g-c', book.floors[x.f].code + '-' + u.no));
         r.appendChild(el('span', 'u-g-m', N.t('{a} m²', { a: size(u) })));
         r.appendChild(el('span', 'u-g-p', money(u.price)));
+        r.lastChild.setAttribute('data-i', i);
         var off = el('button', 'u-g-x', '×');
         off.type = 'button';
         off.setAttribute('aria-label', N.t('Take off {code}', { code: book.floors[x.f].code + '-' + u.no }));
@@ -840,16 +920,29 @@
         list.appendChild(r);
       });
       c.appendChild(list);
-      c.appendChild(facts([
-        ['Indoor', m2(sum('indoor'))],
-        ['Outdoor', sum('outdoor') ? m2(sum('outdoor')) : ''],
-        ['Priced on', m2(sum('area'))],
-        ['Delivered', delivered(l)],
-        ['Maintenance', sum('maintenance') ? pct(sum('maintenance') / sum('price')) + ' · ' + N.tx.egp(sum('maintenance')) : '']
-      ]));
+      var factsAt = el('div');
+      c.appendChild(factsAt);
       if (l.operator) c.appendChild(el('p', 'l-op', N.t(l.operator)));
-      c.appendChild(planBlock(picks.map(function (x) { return { price: x.o.price, kind: x.o.kind, u: x.o, f: x.f }; })));
+      var block = planBlock(picks.map(function (x) { return { price: x.o.price, kind: x.o.kind, u: x.o, f: x.f }; }));
+      c.appendChild(block);
       c.appendChild(el('p', 'src', asOf(book)));
+      function paintGroup(moved) {
+        var rs = raised();
+        pLine.set(rsum('price'));
+        mBox.say(sum('price'), rsum('price'));
+        [].forEach.call(list.querySelectorAll('.u-g-p'), function (n) { n.textContent = money(rs[Number(n.getAttribute('data-i'))].price); });
+        factsAt.textContent = '';
+        factsAt.appendChild(facts([
+          ['Indoor', m2(sum('indoor'))],
+          ['Outdoor', sum('outdoor') ? m2(sum('outdoor')) : ''],
+          ['Priced on', m2(sum('area'))],
+          ['Delivered', delivered(l)],
+          ['Maintenance', rsum('maintenance') ? pct(rsum('maintenance') / rsum('price')) + ' · ' + N.tx.egp(rsum('maintenance')) : '']
+        ]));
+        if (moved) block.setItems(picks.map(function (x, j) { return { price: rs[j].price, kind: x.o.kind, u: x.o, f: x.f }; }));
+      }
+      mBox.onChange = function () { paintGroup(true); };
+      paintGroup(margin.on);
       s3.body.appendChild(c);
     }
 
@@ -908,10 +1001,19 @@
     function priceLine(v) {
       var w = el('p', 'u-price');
       w.appendChild(el('span', 'u-cur', N.t('EGP')));
+      /* the margin's chip, beside EGP: on the agent's screen only, never in the offer */
+      var chip = el('span', 'mg-chip');
+      chip.dir = 'ltr'; chip.hidden = true;
+      w.appendChild(chip);
       w.appendChild(document.createTextNode(' '));
       var n = el('span', 'q-v u-pv');
       odo(n, money(v));
       w.appendChild(n);
+      w.set = function (x) {
+        odo(n, money(x));
+        chip.hidden = !margin.on;
+        chip.textContent = '+' + margin.pct + '%';
+      };
       return w;
     }
 
@@ -1068,7 +1170,7 @@
         send.insertAdjacentHTML('afterbegin', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7z"/></svg>');
         send.addEventListener('click', function () {
           var pl = plans.filter(function (x) { return x.id === ps.value; })[0];
-          N.send.start({ project: p, line: l, plan: pl, items: items[0].share
+          N.send.start({ project: p, line: l, plan: pl, margin: !items[0].share && margin.on ? margin.pct : 0, items: items[0].share
             ? [{ z: items[0].z, f: items[0].f, shares: items.map(function (x) { return x.share; }) }]
             : items.map(function (x) { return { u: x.u, f: x.f }; }) });
         });

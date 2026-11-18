@@ -878,3 +878,60 @@ a:hover .go svg { transform: translateX(4px); }
 /* pdf.js draws each page's text on a canvas, which takes the page's direction: an Arabic page
    would lay every glyph run out right to left and the preview's words fall apart */
 [dir="rtl"] .sd-pages, [dir="rtl"] .sd-pages canvas { direction: ltr; }
+
+/* ---- 2026-11-17: THE MARGIN on the unit card (js/project.js marginBox) ----------------------------
+   a switch row, then a bar 5..15% in whole steps; the chip beside the price is the agent's only */
+.mg { margin-top: 12px; border-radius: 12px; border: 1px solid var(--rule); background: var(--navy-deep); }
+.mg.on { border-color: var(--teal); }
+.mg-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 12px 14px; min-height: 48px;
+  border: 0; background: none; color: #fff; font: inherit; text-align: start; cursor: pointer; border-radius: 12px; }
+.mg-row:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.mg-tx { display: grid; gap: 2px; min-width: 0; }
+.mg-t { font-size: 14px; font-weight: 500; }
+.mg-s { font-size: 11.5px; color: var(--muted); }
+.mg-sw { position: relative; flex: none; width: 46px; height: 28px; border-radius: 999px; background: rgba(255, 255, 255, .18); transition: background .2s; }
+.mg-sw::after { content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .22s var(--ease); }
+.mg.on .mg-sw { background: var(--teal); }
+.mg.on .mg-sw::after { transform: translateX(18px); }
+[dir="rtl"] .mg.on .mg-sw::after { transform: translateX(-18px); }
+.mg-body { padding: 2px 14px 14px; }
+.mg-body[hidden] { display: none; }
+.mg-big { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-variant-numeric: tabular-nums; }
+.mg-big b { font-size: 26px; font-weight: 600; color: var(--teal); }
+.mg-big span { font-size: 15px; font-weight: 500; }
+.mg-rg { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 34px; margin: 6px 0 0; background: transparent; cursor: pointer; touch-action: pan-y; }
+.mg-rg::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--teal) var(--f), rgba(255, 255, 255, .16) var(--f)); }
+[dir="rtl"] .mg-rg::-webkit-slider-runnable-track { background: linear-gradient(to left, var(--teal) var(--f), rgba(255, 255, 255, .16) var(--f)); }
+.mg-rg::-moz-range-track { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .16); }
+.mg-rg::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--teal); }
+.mg-rg::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -11px; border-radius: 50%; background: #fff; border: 3px solid var(--teal); box-shadow: 0 2px 8px rgba(0, 0, 0, .4); }
+.mg-rg::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid var(--teal); }
+.mg-rg:focus-visible { outline: 2px solid var(--teal); outline-offset: 4px; border-radius: 4px; }
+.mg-ticks { display: grid; grid-template-columns: repeat(11, 1fr); margin: 0 14px; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mg-ticks span { text-align: center; margin: 0 -10px; white-space: nowrap; }
+.mg-ticks span.on { color: #fff; font-weight: 600; }
+.mg-sum { margin: 10px 0 0; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mg-chip { display: inline-block; margin: 0 8px; padding: 2px 8px; border-radius: 999px; background: var(--teal); color: var(--navy-deep);
+  font-size: 11px; font-weight: 600; letter-spacing: .02em; vertical-align: middle; font-variant-numeric: tabular-nums; }
+.mg-chip[hidden] { display: none; }
+
+/* ---- 2026-11-17: SEND OFFER has two sides, Broker | Direct client (js/send.js) -------------------- */
+.sd-seg { position: relative; display: grid; grid-template-columns: 1fr 1fr; margin: 12px 0 4px; padding: 4px; border-radius: 12px; background: var(--navy-deep); }
+.sd-tab { position: relative; z-index: 1; min-height: 40px; border: 0; border-radius: 9px; background: none; color: var(--ink-2); font: 500 14px/1 var(--font); cursor: pointer; }
+.sd-tab[aria-selected="true"] { color: var(--navy-deep); }
+.sd-tab:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.sd-thumb { position: absolute; top: 4px; bottom: 4px; inset-inline-start: 4px; width: calc(50% - 4px); border-radius: 9px; background: var(--teal); transition: transform .3s var(--ease); }
+/* the sides slide sideways; the company list may still drop below its side */
+.sd-view { margin: 0 -18px; overflow-x: hidden; overflow-x: clip; overflow-y: visible; touch-action: pan-y; transition: height .3s var(--ease); }
+.sd-track { display: flex; align-items: flex-start; width: 200%; transition: transform .3s var(--ease); }
+.sd-pane { box-sizing: border-box; width: 50%; padding: 14px 18px 2px; }
+.sd-drag .sd-thumb, .sd-drag .sd-track { transition: none; }
+.sd-drag .sd-view { overflow: hidden; }
+.sd-pane > .sd-k { margin-top: 12px; }
+.sd-pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: end; }
+.sd-pair > div { min-width: 0; }
+.sd-pair .sd-k { margin-top: 12px; }
+.sd-or { padding-bottom: 15px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.sd-note.sd-warn { color: #E9B949; }
+.sd-k .mg-chip { margin: 0 6px; }
+@media (prefers-reduced-motion: reduce) { .sd-thumb, .sd-track, .sd-view { transition: none; } }
